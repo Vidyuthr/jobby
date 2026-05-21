@@ -28,7 +28,7 @@ for batch in custom_batched(filtered_jobs, 5):
                 "role": "system",
                 "content": """
                 # Your Role
-                You are a job relevance filter for a new graduate software engineer. 
+                You are a job relevance filter for a new graduate software engineer.
                 Evaluate whether a job is a good fit and return only valid JSON with no markdown or explanation.
                 
                 # Overall Candidate Profile:

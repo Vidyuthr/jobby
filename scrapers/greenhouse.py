@@ -1,3 +1,4 @@
+import html
 import requests
 from bs4 import BeautifulSoup as bs
 
@@ -53,16 +54,16 @@ COMPANY_SLUGS = ['hubspot', 'anthropic', 'gleanwork', 'spacex', 'verkada',
                  'ouihelp',
                  ]
 
-
+# Gets active job postings for a given company
 def fetch_jobs(slug):
     url = f'https://boards-api.greenhouse.io/v1/boards/{slug}/jobs'
     try:
-        r = requests.get(url, params={"content": "true"}, timeout=10)
+        r = requests.get(url, params={"content": "true"}, timeout=30)
         r.raise_for_status()
         clean_jobs_list = []
         jobs = r.json()['jobs']
         for j in jobs:
-            description_html = j["content"]
+            description_html = html.unescape(j["content"])
             description_soup = bs(description_html, 'html.parser')
             clean_description_text = description_soup.get_text()
             clean_jobs_list.append({
@@ -70,7 +71,7 @@ def fetch_jobs(slug):
                 "internal_job_id": j["internal_job_id"],
                 "title": j["title"],
                 "company": j["company_name"],
-                "description": clean_description_text,
+                "description": clean_description_text[:1500],
                 "location": j["location"]["name"],
                 "url": j["absolute_url"],
             })
@@ -79,8 +80,13 @@ def fetch_jobs(slug):
     except requests.exceptions.HTTPError as e:
         print(f'Fetch for {slug} jobs failed: {e}')
         return []
+    except requests.exceptions.ReadTimeout:
+        print(f'{slug}: timed out, skipping')
+        return []
 
 
+# Gets all active job postings currently on Greenhouse job board, across all companies
+# Loops through COMPANY_SLUGS and calls GH Job Board API with each slug, aggregating all the job postings for all the companies
 def fetch_all_greenhouse_jobs():
     result = []
     for slug in COMPANY_SLUGS:
@@ -89,7 +95,9 @@ def fetch_all_greenhouse_jobs():
 
 all_jobs = fetch_all_greenhouse_jobs()
 
-# filter to:
+
+
+# filters to:
 # new grad level (omitting senior/executive/founder-related roles)
 # swe/ai/ml/product related (omitting all irrelevant roles like Cybersecurity, Data Center Technician, IT Support,
 # Medical-related, Accounting, Sales reps, etc)
@@ -115,7 +123,6 @@ def filter_all_gh_jobs():
     usa_jobs = [j for j in relevant_jobs if 'united states' in j["location"].lower()]
 
     return usa_jobs
-
-# print('\n\n\n'.join(j['location'] for j in filter_all_gh_jobs(all_jobs)[0:5]))
-# 
-# print(all_jobs[0].keys())
+ 
+filtered = filter_all_gh_jobs()
+print(filtered[0]['description'])
