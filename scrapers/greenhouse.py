@@ -102,7 +102,7 @@ all_jobs = fetch_all_greenhouse_jobs()
 # London, UK',
 # 'url': 'https://job-boards.greenhouse.io/anthropic/jobs/5221910008'}
 
-def filter_all_gh_jobs(jobs):
+def filter_all_gh_jobs():
     bad_keywords = {'senior', 'recruit', 'principal', 'architect', 'manager', 
                 'director', 'sales', 'founder', 'ceo', 'coo', 'chief', 
                 'president', 'vice'}
@@ -111,12 +111,11 @@ def filter_all_gh_jobs(jobs):
                       'finance', 'design', 'operations', 'people'}
     
     all_bad = bad_keywords | irrelevant_domains
-    relevant_jobs = [j for j in jobs if not any(kw in j['title'].lower() for kw in all_bad)]
+    relevant_jobs = [j for j in all_jobs if not any(kw in j['title'].lower() for kw in all_bad)]
     usa_jobs = [j for j in relevant_jobs if 'united states' in j["location"].lower()]
 
     return usa_jobs
 
-print(len(filter_all_gh_jobs(all_jobs)))
 # print('\n\n\n'.join(j['location'] for j in filter_all_gh_jobs(all_jobs)[0:5]))
 # 
 # print(all_jobs[0].keys())
