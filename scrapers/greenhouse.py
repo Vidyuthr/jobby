@@ -59,10 +59,14 @@ COMPANY_SLUGS = ['hubspot',
 # Helper for fetch_jobs()
 # Gets the most relevant portions of the job description
 def extract_relevant_description(text):
-    keywords = ['you will', "you'll", 'responsibilities', 'requirements', 
-                'what you', 'you have', 'experience', 'qualifications', 
-                'we are looking', 'about the role', 'who you'] 
-    
+    keywords = [
+        'You Will', 'You\'ll', 'Responsibilities', 'Requirements',
+        'What You', 'You Have', 'Experience', 'Qualifications',
+        'We Are Looking', 'About the Role', 'Who You',
+        'you will', 'you\'ll', 'responsibilities', 'requirements', 
+        'what you', 'you have', 'experience', 'qualifications', 
+        'we are looking', 'about the role', 'who you'
+    ]
     excerpts = []
     seen_positions = []
     low_priority_indices = []
