@@ -2,7 +2,9 @@ import html
 import requests
 from bs4 import BeautifulSoup as bs
 
-COMPANY_SLUGS = ['hubspot', 'anthropic', 'gleanwork', 'spacex', 'verkada', 
+COMPANY_SLUGS = ['hubspot', 
+                #  'anthropic', 
+                 'gleanwork', 'spacex', 'verkada', 
                  'engine',
                  'calendly',
                  'superserve',
@@ -54,6 +56,36 @@ COMPANY_SLUGS = ['hubspot', 'anthropic', 'gleanwork', 'spacex', 'verkada',
                  'ouihelp',
                  ]
 
+# Helper for fetch_jobs()
+# Gets the most relevant portions of the job description
+def extract_relevant_description(text):
+    keywords = ['you will', "you'll", 'responsibilities', 'requirements', 
+                'what you', 'you have', 'experience', 'qualifications', 
+                'we are looking', 'about the role', 'who you'] 
+    
+    excerpts = []
+    seen_positions = []
+    low_priority_indices = []
+    for kw in keywords:
+        idx = text.lower().find(kw)
+        if idx != -1:
+            # avoid grabbing overlapping sections
+            if not any(abs(idx - pos) < 200 for pos in seen_positions):
+                current_excerpt = text[idx:idx + 800]
+                seen_positions.append(idx)
+                
+                if len(excerpts) < 2:
+                    excerpts.append(current_excerpt)
+                    if not current_excerpt[0].isupper():
+                        low_priority_indices.append(len(excerpts) - 1)
+                elif low_priority_indices and current_excerpt[0].isupper():
+                    # replace the first low priority excerpt with this better one
+                    replace_idx = low_priority_indices.pop(0)
+                    excerpts[replace_idx] = current_excerpt
+        if len(excerpts) == 2:
+            break
+    return ' ... '.join(excerpts)
+
 # Gets active job postings for a given company
 def fetch_jobs(slug):
     url = f'https://boards-api.greenhouse.io/v1/boards/{slug}/jobs'
@@ -66,12 +98,13 @@ def fetch_jobs(slug):
             description_html = html.unescape(j["content"])
             description_soup = bs(description_html, 'html.parser')
             clean_description_text = description_soup.get_text()
+            relevant_description_text = extract_relevant_description(clean_description_text)
             clean_jobs_list.append({
                 "gh_job_id": j["id"],
                 "internal_job_id": j["internal_job_id"],
                 "title": j["title"],
                 "company": j["company_name"],
-                "description": clean_description_text[:1500],
+                "description": relevant_description_text,
                 "location": j["location"]["name"],
                 "url": j["absolute_url"],
             })
@@ -125,4 +158,7 @@ def filter_all_gh_jobs():
     return usa_jobs
  
 filtered = filter_all_gh_jobs()
-print(filtered[0]['description'])
+for i in filtered[0:5]:
+    print('--------------------------------------------------------------------------------')
+    print(i['title'])
+    print(i['description'])
