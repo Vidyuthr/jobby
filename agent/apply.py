@@ -12,15 +12,15 @@ async def apply_to_single_job(job):
         browser = p.chromium.launch(headless=False)
         page = browser.new_page()
         page.goto(job['url'])
-        await page.get_by_role("button", { "name": "Apply" }).click()
-        await page.getByLabel('First Name').fill(os.getenv("CANDIDATE_FIRST_NAME"))
-        await page.getByLabel('Last Name').fill(os.getenv("CANDIDATE_LAST_NAME"))
-        await page.getByLabel('Email').fill(os.getenv("CANDIDATE_EMAIL"))
+        await page.get_by_role('button', { 'name': 'Apply' }).click()
+        await page.getByLabel('First Name').fill(os.getenv('CANDIDATE_FIRST_NAME'))
+        await page.getByLabel('Last Name').fill(os.getenv('CANDIDATE_LAST_NAME'))
+        await page.getByLabel('Email').fill(os.getenv('CANDIDATE_EMAIL'))
         # await page.getByLabel('Country').fill('')
         await page.getByLabel('Phone').fill(os.getenv('CANDIDATE_PHONE_NUMBER'))
         await page.getByLabel('Linkedin').fill(os.getenv('CANDIDATE_PHONE_NUMBER'))
         await page.getByLabel('Resume/CV').setInputFiles(resume_file_path)
-        await page.get_by_role("button", { "name": "Submit" }).click()
+        await page.get_by_role('button', { 'name': 'Submit' }).click()
 
 
 
