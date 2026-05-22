@@ -93,6 +93,19 @@ def extract_relevant_description(text):
             break
     return ' ... '.join(final_excerpts_indices_to_texts.values())
 
+TECH_SKILLS = {
+    'python', 'javascript', 'typescript', 'java', 'go', 'golang', 'rust', 'c++', 'c#', 'swift', 'kotlin', 'ruby', 'scala',
+    'react', 'node', 'node.js', 'express', 'django', 'flask', 'fastapi', 'nextjs', 'vue', 'angular',
+    'postgresql', 'postgres', 'mysql', 'mongodb', 'redis', 'sqlite', 'dynamodb', 'snowflake', 'bigquery',
+    'aws', 'gcp', 'azure', 'docker', 'kubernetes', 'terraform', 'kafka', 'airflow', 'spark', 'databricks',
+    'pytorch', 'tensorflow', 'scikit-learn', 'huggingface', 'langchain', 'numpy', 'pandas',
+    'llm', 'rag', 'machine learning', 'deep learning', 'computer vision', 'nlp', 'reinforcement learning',
+    'graphql', 'rest', 'grpc', 'firebase', 'supabase', 'stripe', 'sql'
+}
+
+def extract_tech_skills(text):
+    return [skill for skill in TECH_SKILLS if skill in text.lower()]
+
 # Gets active job postings for a given company
 def fetch_jobs(slug):
     url = f'https://boards-api.greenhouse.io/v1/boards/{slug}/jobs'
