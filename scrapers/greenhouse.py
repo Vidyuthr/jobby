@@ -1,9 +1,10 @@
 import html
+import re
 import requests
 from bs4 import BeautifulSoup as bs
 
 COMPANY_SLUGS = ['hubspot', 
-                #  'anthropic', 
+                 'anthropic', 
                  'gleanwork', 'spacex', 'verkada', 
                  'engine',
                  'calendly',
@@ -35,8 +36,6 @@ COMPANY_SLUGS = ['hubspot',
                  'amperesand',
                  'lively43',
                  'zoominfo',
-                 'atomicmachines',
-                 'fireworksai',
                  'altruist',
                  'figma',
                  'airtable',
@@ -91,10 +90,13 @@ def extract_relevant_description(text):
                     final_excerpts_indices_to_texts[replace_idx] = current_excerpt
         if len(final_excerpts_indices_to_texts) == 2 and not low_priority_description_indices:
             break
-    return ' ... '.join(final_excerpts_indices_to_texts.values())
+    final_excerpts_texts = list(final_excerpts_indices_to_texts.values())
+    if len(final_excerpts_texts) == 2 and final_excerpts_texts[0][:200].strip() == final_excerpts_texts[1][:200].strip():
+        return final_excerpts_texts[0]
+    return ' ... '.join(final_excerpts_texts)
 
 TECH_SKILLS = {
-    'python', 'javascript', 'typescript', 'java', 'go', 'golang', 'rust', 'c++', 'c#', 'swift', 'kotlin', 'ruby', 'scala',
+    'python', 'javascript', 'typescript', 'java', 'golang', 'rust', 'c++', 'c#', 'swift', 'kotlin', 'ruby', 'scala',
     'react', 'node', 'node.js', 'express', 'django', 'flask', 'fastapi', 'nextjs', 'vue', 'angular',
     'postgresql', 'postgres', 'mysql', 'mongodb', 'redis', 'sqlite', 'dynamodb', 'snowflake', 'bigquery',
     'aws', 'gcp', 'azure', 'docker', 'kubernetes', 'terraform', 'kafka', 'airflow', 'spark', 'databricks',
@@ -104,10 +106,16 @@ TECH_SKILLS = {
 }
 
 def extract_tech_skills(text):
-    return [skill for skill in TECH_SKILLS if skill in text.lower()]
+    text_lower = text.lower()
+    found = []
+    for skill in TECH_SKILLS:
+        pattern = r'\b' + re.escape(skill) + r'\b'
+        if re.search(pattern, text_lower):
+            found.append(skill)
+    return found
 
 # Gets active job postings for a given company
-def fetch_jobs(slug):
+def fetch_jobs_by_company(slug):
     url = f'https://boards-api.greenhouse.io/v1/boards/{slug}/jobs'
     try:
         r = requests.get(url, params={"content": "true"}, timeout=30)
@@ -117,14 +125,15 @@ def fetch_jobs(slug):
         for j in jobs:
             description_html = html.unescape(j["content"])
             description_soup = bs(description_html, 'html.parser')
-            clean_description_text = description_soup.get_text()
-            relevant_description_text = extract_relevant_description(clean_description_text)
+            description_text_without_html = description_soup.get_text()
+            relevant_description_text = extract_relevant_description(description_text_without_html)
             clean_jobs_list.append({
                 "gh_job_id": j["id"],
                 "internal_job_id": j["internal_job_id"],
                 "title": j["title"],
                 "company": j["company_name"],
                 "description": relevant_description_text,
+                "main_skills": extract_tech_skills(description_text_without_html),
                 "location": j["location"]["name"],
                 "url": j["absolute_url"],
             })
@@ -143,7 +152,7 @@ def fetch_jobs(slug):
 def fetch_all_greenhouse_jobs():
     result = []
     for slug in COMPANY_SLUGS:
-        result.extend(fetch_jobs(slug))
+        result.extend(fetch_jobs_by_company(slug))
     return result
 
 all_jobs = fetch_all_greenhouse_jobs()
@@ -163,7 +172,7 @@ all_jobs = fetch_all_greenhouse_jobs()
 # London, UK',
 # 'url': 'https://job-boards.greenhouse.io/anthropic/jobs/5221910008'}
 
-def filter_all_gh_jobs():
+def get_all_gh_jobs_filtered():
     bad_keywords = {'senior', 'recruit', 'principal', 'architect', 'manager', 
                 'director', 'sales', 'founder', 'ceo', 'coo', 'chief', 
                 'president', 'vice', 'solutions'}
@@ -176,11 +185,3 @@ def filter_all_gh_jobs():
     usa_jobs = [j for j in relevant_jobs if 'united states' in j["location"].lower()]
 
     return usa_jobs
- 
-filtered = filter_all_gh_jobs()
-for i in filtered[0:5]:
-    print('--------------------------------------------------------------------------------')
-    print('--------------------------------------------------------------------------------')
-    print('--------------------------------------------------------------------------------')
-    print(i['title'].upper() + '    ' +  i['company'].upper())
-    print(i['description'])
