@@ -30,7 +30,7 @@ apply_tool_schema = {
   "type": "function",
   "function": {
     "name": "apply_greenhouse_job",
-    "description": "Apply to a specific job on the Greenhouse Job Board with correct profile/resume information on candidate Vidyuth Ramkumar.",
+    "description": f"Apply to a specific job on the Greenhouse Job Board with correct profile/resume information on candidate {os.getenv('CANDIDATE_FIRST_NAME') + ' ' + os.getenv('CANDIDATE_LAST_NAME')}.",
     "parameters": {
       "type": "object",
       "properties": {
