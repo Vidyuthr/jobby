@@ -57,38 +57,41 @@ COMPANY_SLUGS = ['hubspot',
                  ]
 
 # Helper for fetch_jobs()
-# Gets the most relevant portions of the job description
+# Gets the 2 most relevant excerpts of the job description
+# Casing of excerpts is important because it can determine start of certain sections of the job desc.
 def extract_relevant_description(text):
     keywords = [
         'You Will', 'You\'ll', 'Responsibilities', 'Requirements',
+        'Minimum Qualifications', 'minimum qualifications',
+        'Must Have', 'must have',
+        'Basic Qualifications', 'basic qualifications',
+        'Preferred Qualifications', 'preferred qualifications',
         'What You', 'You Have', 'Experience', 'Qualifications',
         'We Are Looking', 'About the Role', 'Who You',
         'you will', 'you\'ll', 'responsibilities', 'requirements', 
         'what you', 'you have', 'experience', 'qualifications', 
         'we are looking', 'about the role', 'who you'
     ]
-    excerpts = []
-    seen_positions = []
-    low_priority_indices = []
+    final_excerpts_indices_to_texts = {}
+    low_priority_description_indices = [] # positions of excerpts that are lower case (could be mid-sentence or not desc section starting points)
     for kw in keywords:
         idx = text.lower().find(kw)
         if idx != -1:
-            # avoid grabbing overlapping sections
-            if not any(abs(idx - pos) < 200 for pos in seen_positions):
-                current_excerpt = text[idx:idx + 800]
-                seen_positions.append(idx)
+            # only if idx is NOT within 200 chars of ANY gathered excerpts idx pos'ns
+            if not any(abs(idx - pos) < 200 for pos in final_excerpts_indices_to_texts.keys()):
                 
-                if len(excerpts) < 2:
-                    excerpts.append(current_excerpt)
+                if len(final_excerpts_indices_to_texts) < 2: # still have room for more excerpts?
+                    current_excerpt = text[idx:idx + 1100] # slice original text, not text.lower() to maintain casing
+                    final_excerpts_indices_to_texts[idx] = current_excerpt
                     if not current_excerpt[0].isupper():
-                        low_priority_indices.append(len(excerpts) - 1)
-                elif low_priority_indices and current_excerpt[0].isupper():
-                    # replace the first low priority excerpt with this better one
-                    replace_idx = low_priority_indices.pop(0)
-                    excerpts[replace_idx] = current_excerpt
-        if len(excerpts) == 2:
+                        low_priority_description_indices.append(idx)
+                elif low_priority_description_indices and current_excerpt[0].isupper(): # there is any low priority excerpt index and current excerpt is upper case
+                    # replace the first low priority excerpt with this better upper case one
+                    replace_idx = low_priority_description_indices.pop(0)
+                    final_excerpts_indices_to_texts[replace_idx] = current_excerpt
+        if len(final_excerpts_indices_to_texts) == 2 and not low_priority_description_indices:
             break
-    return ' ... '.join(excerpts)
+    return ' ... '.join(final_excerpts_indices_to_texts.values())
 
 # Gets active job postings for a given company
 def fetch_jobs(slug):
@@ -150,7 +153,7 @@ all_jobs = fetch_all_greenhouse_jobs()
 def filter_all_gh_jobs():
     bad_keywords = {'senior', 'recruit', 'principal', 'architect', 'manager', 
                 'director', 'sales', 'founder', 'ceo', 'coo', 'chief', 
-                'president', 'vice'}
+                'president', 'vice', 'solutions'}
     irrelevant_domains = {'electrical', 'mechanical', 'cyber', 'embedded', 
                       'firmware', 'hardware', 'chip', 'account', 'legal', 
                       'finance', 'design', 'operations', 'people'}
@@ -164,5 +167,7 @@ def filter_all_gh_jobs():
 filtered = filter_all_gh_jobs()
 for i in filtered[0:5]:
     print('--------------------------------------------------------------------------------')
-    print(i['title'])
+    print('--------------------------------------------------------------------------------')
+    print('--------------------------------------------------------------------------------')
+    print(i['title'].upper() + '    ' +  i['company'].upper())
     print(i['description'])

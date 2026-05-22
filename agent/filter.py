@@ -55,6 +55,9 @@ for batch in custom_batched(filtered_jobs, 5):
 
                 ## Certifications: Stanford ML Specialization (Supervised learning, deep learning, and reinforcement learning), CrewAI Building MultiAgent Systems, Databricks basics (ML + Data Engineering), Google LLM/GenAI, Anthropic Agent Skills
 
+                # Vidyuth's Personality:
+                - 
+
                 # How to Respond
                 - Respond with only this JSON array format: each job evaluation item in the array is a JSON like this: {"title": ___, "company": ___, "relevant": true/false, "reason": “2 sentence explanation"}
                 - Multiple of these JSON evaluation items in an array
