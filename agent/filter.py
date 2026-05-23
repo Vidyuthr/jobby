@@ -25,7 +25,7 @@ CANDIDATE_PERSONALITY = "- Very very curious and eager to learn everything deepl
 
 
 
-filtered_greenhouse_jobs = greenhouse.get_all_gh_jobs_filtered()[0:10]
+filtered_greenhouse_jobs = greenhouse.get_all_gh_jobs_filtered()
 
 
 def custom_batched(lst, n):
@@ -68,11 +68,11 @@ def groq_batch_evaluate_jobs(jobs):
                     # How to Respond
                     - Respond with only this JSON array format: each job evaluation item in the array is a JSON like this:
                     {{
-                    'title': '___',
-                    'company': '___',
-                    'relevant': 'true/false (commit to a decisive true or false, no grey area)',
-                    'matching_skills': 'list containing all the tech skills that match well with candidate like [Python, React, etc]',
-                    'reason': '2 sentence explanation that does not include work authorization in US as reason, because candidate is authorized in US.'
+                    "title": "___",
+                    "company": "___",
+                    "relevant": true or false (use lowercase JSON boolean, not a string)",
+                    "matching_skills": "list containing all the tech skills that match well with candidate like [Python, React, etc]",
+                    "reason": "2 sentence explanation that does not include work authorization in US as reason, because candidate is authorized in US."
                     }}
                     - Multiple of these JSON evaluation items in an array
                     - Only give that array, nothing before or after, so that it is parsable in code.
@@ -88,13 +88,14 @@ def groq_batch_evaluate_jobs(jobs):
         print(f"Processed BATCH #{batch_number}.")
         time.sleep(2)
         raw = chat_completion.choices[0].message.content
-        print(repr(raw))
-        parsed_json_evaluation = json.loads(chat_completion.choices[0].message.content)
+        # Replace Python booleans with JSON booleans
+        sanitized = raw.replace('True', 'true').replace('False', 'false')
+        parsed_json_evaluation = json.loads(sanitized)
         evaluations.append(parsed_json_evaluation)
     return evaluations
 
-test_evals = groq_batch_evaluate_jobs(filtered_greenhouse_jobs)
+llm_evals = groq_batch_evaluate_jobs(filtered_greenhouse_jobs)
 
 def get_jobs_to_apply(groq_evaluations):
     flat_list = [eval for sublist in groq_evaluations for eval in sublist]
-    return [eval for eval in flat_list if eval['relevant']]
+    return [eval for eval in flat_list if eval['relevant'] == True]
