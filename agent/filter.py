@@ -12,6 +12,19 @@ load_dotenv()
 
 client = Groq(api_key=os.getenv('GROQ_API_KEY'))
 
+CANDIDATE_FIRST_NAME = 'Vidyuth'
+CANDIDATE_LAST_NAME = 'Ramkumar'
+CANDIDATE_EMAIL = 'vidyuth.ramkumar@gmail.com'
+CANDIDATE_LINKEDIN = 'https://www.linkedin.com/in/vidyuth-ramkumar/'
+OVERALL_CANDIDATE_PROFILE = "- Name: Vidyuth Subbiah Ramkumar - Education: BS Computer Science + Business Administration, Northeastern University Honors Program, May 2026. Dean\'s List. - Experience level: roughly 2 years, targeting strong new grad / junior roles - Target roles: Vidyuth is looking for full-time permanent roles or internships only, not research fellowships or contractor positions. AI/ML Engineer, Software Engineer, Product roles, at AI startups. If not, moderately relevant roles are fine too. - Open to: all roles in USA. Vidyuth is open to relocation within the USA - Work authorization: Vidyuth has work authorization as he is a permanent resident of the USA and he does NOT require any visa sponsorship."
+CANDIDATE_SKILLS = "Languages: Python, JavaScript, TypeScript, SQL, Swift, Java\nFrameworks & Tools: TensorFlow, Scikit-learn, HuggingFace, Redis, Apache Spark, Apache Airflow, NumPy, Pandas, Databricks, Docker, PostgreSQL, MongoDB, Firebase, React JS, Node JS, Tailwind, Stripe\nAI/ML: Machine Learning, LLMs, RAG pipelines, Deep Learning, Feature Engineering, Model Evaluation, Agents"
+CANDIDATE_EXPERIENCE = "- Beatleaf (Co-Founder): Full stack version control software for music producers , React/Express/PostgreSQL/Supabase, audio version control, 30+ users. strong product/startup understanding of PMF, market/user interviewing, engineering prioritization, etc.\n- Credit One Bank (SWE Intern): Production data engineering including complex SQL, Apache Airflow, Spark to help monitor internal data platform that handled complex and vast data in 300 terabytes\n- Objectways (AI/ML Engineer, Jun 2024 - Dec 2024): Engineered production full stack Express.js backend with Firebase NoSQL Firestore database, Python LLM tokenization service, and Stripe payment processing for Sheetwise — an AI-powered Google Sheets extension with 220+ organic user signups and multiple paid subscribers on Google Sheets Marketplace. Built production Databricks RAG pipelines in Python, Spark, and SQL powering a customer support chatbot (60% faster response time) and a vehicle AI assistant (85% accuracy across 300+ models).\n- Sparrow (Tech Intern): Python web scraping via BS4 and requests, HTML work, PowerBI work"
+CANDIDATE_PROJECTS = "- Safe Stack Overflow: Full stack Q&A platform with AI content moderation\n- Nightcap: React Native IoT sleep startup, 12,000+ views on social media, finalist in University startup challenge. Product was not built"
+CANDIDATE_CERTIFICATIONS = "Stanford ML Specialization (Supervised learning, deep learning, and reinforcement learning),CrewAI Building MultiAgent Systems, Databricks basics (ML + Data Engineering), Google LLM/GenAI, Anthropic Agent Skills"
+CANDIDATE_PERSONALITY = "- Very very curious and eager to learn everything deeply. Constant learner, loves new things. Asks lots of questions. Passionate. - Constantly thinks of ideas, being a two-time founder. Always thinking how to improve processes/operations, or just ideas in general for products/solutions/features. - Approachable, kind, and loves to work with people, able to explain/present very very well due to speech & debate nationalist in highschool and many startup pitches/competitions – so he has soft skills and presentation skills to both technical and non-technical audiences"
+
+
+
 filtered_greenhouse_jobs = greenhouse.get_all_gh_jobs_filtered()[0:10]
 
 
@@ -32,35 +45,35 @@ def groq_batch_evaluate_jobs(jobs):
                     # Your Role
                     You are a job relevance filter for a new graduate software engineer.
                     Evaluate whether a job is a good fit and return only valid JSON with no markdown or explanation.
-                    
+
                     # Overall Candidate Profile:
-                    {os.getenv('OVERALL_CANDIDATE_PROFILE')}
-                    
+                    {OVERALL_CANDIDATE_PROFILE}
+
                     # Candidate Skills:
-                    {os.getenv('CANDIDATE_SKILLS')}
+                    {CANDIDATE_SKILLS}
 
                     ## Experience:
-                    {os.getenv('CANDIDATE_EXPERIENCE')}
+                    {CANDIDATE_EXPERIENCE}
 
                     ## Projects:
-                    {os.getenv('CANDIDATE_PROJECTS')}
+                    {CANDIDATE_PROJECTS}
 
-                    ## Certifications: 
-                    {os.getenv('CANDIDATE_CERTIFICATIONS')}
+                    ## Certifications:
+                    {CANDIDATE_CERTIFICATIONS}
 
                     # Candidate's Personality:
-                    {os.getenv('CANDIDATE_PERSONALITY')}
+                    {CANDIDATE_PERSONALITY}
                     
 
                     # How to Respond
                     - Respond with only this JSON array format: each job evaluation item in the array is a JSON like this:
-                    {
+                    {{
                     'title': '___',
                     'company': '___',
                     'relevant': 'true/false (commit to a decisive true or false, no grey area)',
                     'matching_skills': 'list containing all the tech skills that match well with candidate like [Python, React, etc]',
                     'reason': '2 sentence explanation that does not include work authorization in US as reason, because candidate is authorized in US.'
-                    }
+                    }}
                     - Multiple of these JSON evaluation items in an array
                     - Only give that array, nothing before or after, so that it is parsable in code.
                     """
@@ -74,6 +87,8 @@ def groq_batch_evaluate_jobs(jobs):
         )
         print(f"Processed BATCH #{batch_number}.")
         time.sleep(2)
+        raw = chat_completion.choices[0].message.content
+        print(repr(raw))
         parsed_json_evaluation = json.loads(chat_completion.choices[0].message.content)
         evaluations.append(parsed_json_evaluation)
     return evaluations
