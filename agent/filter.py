@@ -70,6 +70,8 @@ def groq_batch_evaluate_jobs(jobs):
                     {{
                     "title": "___",
                     "company": "___",
+                    "url": "___",
+                    "gh_job_id": "___"
                     "relevant": true or false (use lowercase JSON boolean, not a string)",
                     "matching_skills": "list containing all the tech skills that match well with candidate like [Python, React, etc]",
                     "reason": "2 sentence explanation that does not include work authorization in US as reason, because candidate is authorized in US."
