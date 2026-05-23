@@ -1,11 +1,11 @@
-# agent/filter.py
+# filters/filter.py
 
 import json
 import time
 import os
 from dotenv import load_dotenv
 from groq import Groq
-from scrapers import greenhouse
+from scrapers.greenhouse import get_all_gh_jobs_filtered
 
 
 load_dotenv()
@@ -25,7 +25,7 @@ CANDIDATE_PERSONALITY = "- Very very curious and eager to learn everything deepl
 
 
 
-filtered_greenhouse_jobs = greenhouse.get_all_gh_jobs_filtered()
+filtered_greenhouse_jobs = get_all_gh_jobs_filtered()
 
 
 def custom_batched(lst, n):
@@ -90,14 +90,19 @@ def groq_batch_evaluate_jobs(jobs):
         print(f"Processed BATCH #{batch_number}.")
         time.sleep(2)
         raw = chat_completion.choices[0].message.content
+        print(raw)
         # Replace Python booleans with JSON booleans
         sanitized = raw.replace('True', 'true').replace('False', 'false')
         parsed_json_evaluation = json.loads(sanitized)
         evaluations.append(parsed_json_evaluation)
     return evaluations
 
-llm_evals = groq_batch_evaluate_jobs(filtered_greenhouse_jobs)
-
 def get_jobs_to_apply(groq_evaluations):
     flat_list = [eval for sublist in groq_evaluations for eval in sublist]
     return [eval for eval in flat_list if eval['relevant'] == True]
+
+
+if __name__ == "__main__":
+    llm_evals = groq_batch_evaluate_jobs(filtered_greenhouse_jobs)
+    jobs_to_apply = get_jobs_to_apply(llm_evals)
+    print(f"\n{len(jobs_to_apply)} relevant jobs found.")

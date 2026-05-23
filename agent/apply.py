@@ -6,23 +6,34 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-phone_number = os.getenv('PHONE_NUMBER')
-resume_file_path = os.getenv('RESUME_FILE_PATH')
+# Candidate information
+CANDIDATE_FIRST_NAME = 'Vidyuth'
+CANDIDATE_LAST_NAME = 'Ramkumar'
+CANDIDATE_EMAIL = 'vidyuth.ramkumar@gmail.com'
+CANDIDATE_PHONE_NUMBER = os.getenv('CANDIDATE_PHONE_NUMBER', '4809257843')
+RESUME_FILE_PATH = os.getenv('RESUME_FILE_PATH')
+LINKEDIN = 'https://www.linkedin.com/in/vidyuth-ramkumar/'
 
 def apply_to_single_job(job):
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
         page = browser.new_page()
         page.goto(job['url'])
-        page.get_by_role("button", name="Apply").click()
-        page.get_by_label('First Name').fill(os.getenv('CANDIDATE_FIRST_NAME'))
-        page.get_by_label('Last Name').fill(os.getenv('CANDIDATE_LAST_NAME'))
-        page.get_by_label('Email').fill(os.getenv('CANDIDATE_EMAIL'))
-        # await page.getByLabel('Country').fill('')
-        page.get_by_label('Phone').fill(os.getenv('CANDIDATE_PHONE_NUMBER'))
-        page.get_by_label('Linkedin').fill(os.getenv('CANDIDATE_PHONE_NUMBER'))
-        page.get_by_label('Resume/CV').set_input_files(resume_file_path)
-        page.get_by_role("button", name="Submit").click()
+        page.wait_for_load_state('networkidle')
+        try:
+            page.get_by_role("button", name="Apply").click()
+            page.get_by_label('First Name').fill(CANDIDATE_FIRST_NAME)
+            page.get_by_label('Last Name').fill(CANDIDATE_LAST_NAME)
+            page.get_by_label('Email').fill(CANDIDATE_EMAIL)
+            # await page.getByLabel('Country').fill('')
+            page.get_by_label('Phone').fill(CANDIDATE_PHONE_NUMBER)
+            page.get_by_label('Linkedin').fill(LINKEDIN)
+            page.get_by_label('Resume/CV').set_input_files(RESUME_FILE_PATH)
+            page.get_by_role("button", name="Submit").click()
+        except Exception as e:
+            print(f"Error filling form for {job['title']} at {job['company']}: \n{e}")
+
+        page.wait_for_load_state('networkidle')
 
 
 
@@ -32,7 +43,7 @@ apply_tool_schema = {
   "type": "function",
   "function": {
     "name": "apply_greenhouse_job",
-    "description": f"Apply to a specific job on the Greenhouse Job Board with correct profile/resume information on candidate {os.getenv('CANDIDATE_FIRST_NAME') + ' ' + os.getenv('CANDIDATE_LAST_NAME')}.",
+    "description": f"Apply to a specific job on the Greenhouse Job Board with correct profile/resume information on candidate {CANDIDATE_FIRST_NAME} {CANDIDATE_LAST_NAME}.",
     "parameters": {
       "type": "object",
       "properties": {

@@ -182,6 +182,6 @@ def get_all_gh_jobs_filtered():
     
     all_bad = bad_keywords | irrelevant_domains
     relevant_jobs = [j for j in all_jobs if not any(kw in j['title'].lower() for kw in all_bad)]
-    usa_jobs = [j for j in relevant_jobs if 'united states' in j["location"].lower()]
+    usa_relevant_jobs = [j for j in relevant_jobs if 'united states' in j["location"].lower()]
 
-    return usa_jobs
+    return usa_relevant_jobs
