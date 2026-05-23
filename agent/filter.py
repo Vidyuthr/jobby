@@ -1,3 +1,4 @@
+# agent/filter.py
 
 import json
 import time
@@ -80,4 +81,5 @@ def groq_batch_evaluate_jobs(jobs):
 test_evals = groq_batch_evaluate_jobs(filtered_greenhouse_jobs)
 
 def get_jobs_to_apply(groq_evaluations):
-    return [eval for eval in groq_evaluations if eval['relevant']]
+    flat_list = [eval for sublist in groq_evaluations for eval in sublist]
+    return [eval for eval in flat_list if eval['relevant']]
