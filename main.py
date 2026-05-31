@@ -22,17 +22,19 @@ def main():
 
     # Get only relevant jobs
     jobs_to_apply = get_jobs_to_apply(llm_evaluations)
-    print(f"\n{len(jobs_to_apply)} relevant jobs found.")
+    for i in jobs_to_apply:
+        print(i)
+        print('-')
 
     # Apply to each relevant job
-    if jobs_to_apply:
-        print("\nApplying to jobs...")
-        for job in jobs_to_apply:
-            print(f"\nApplying to {job['title']} at {job['company']}")
-            apply_to_single_job(job)
-        print(f"\nCompleted applying to {len(jobs_to_apply)} jobs!")
-    else:
-        print("\nNo relevant jobs to apply to.")
+    # if jobs_to_apply:
+    #     print("\nApplying to jobs...")
+    #     for job in jobs_to_apply:
+    #         print(f"\nApplying to {job['title']} at {job['company']}")
+    #         apply_to_single_job(job)
+    #     print(f"\nCompleted applying to {len(jobs_to_apply)} jobs!")
+    # else:
+    #     print("\nNo relevant jobs to apply to.")
 
 
 if __name__ == "__main__":
