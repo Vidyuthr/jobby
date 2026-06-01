@@ -88,9 +88,12 @@ def apply_to_single_job(job):
         browser_page.goto(job['url'])
         browser_page.wait_for_load_state('networkidle')
         try:
+            browser_page.get_by_role("button", name="Apply").click()
+            browser_page.goto(job['url'])
+            browser_page.wait_for_load_state('networkidle')
             for possible_field in POSSIBLE_FORM_FIELDS:
                fill_field(browser_page, possible_field)
-            browser_page.get_by_role("button", name="Apply").click()
+            
             browser_page.get_by_role("button", name="Submit").click()
         except Exception as e:
             print(f"Error filling form for {job['title']} at {job['company']}: \n{e}")
