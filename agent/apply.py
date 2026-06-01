@@ -18,7 +18,7 @@ POSSIBLE_FORM_FIELDS = {
     "first_name": ["First Name", "first_name", "firstName"],
     "last_name": ["Last Name", "last_name", "lastName"],
     "email": ["Email", "email", "Email Address"],
-    "phone": ["Phone", "phone", "Phone Number", "Mobile"],
+    "phone": ["Phone", "Phone*", "phone", "Phone Number", "Mobile"],
     "city": [
         "City",
         "city",
@@ -27,7 +27,7 @@ POSSIBLE_FORM_FIELDS = {
         "State",
         "state",
     ],
-    "country": ["Country", "country", "Country Code"],
+    "country": ["Country", "Country*", "country", "Country Code"],
     "linkedin": [
         "LinkedIn",
         "Linkedin",
@@ -36,7 +36,7 @@ POSSIBLE_FORM_FIELDS = {
         "LinkedIn URL",
         "Linkedin URL",
     ],
-    "resume": ["Resume/CV", "Resume", "CV", "Upload Resume"],
+    "resume": ["Resume/CV", "Resume/CV*", "Resume", "CV", "Upload Resume"],
 }
 
 FIELD_KEYS_TO_ENTRIES = {
@@ -98,6 +98,7 @@ def try_select_or_fill(locator, values):
     return False
 
 
+# Tries all the possible field names
 def fill_field(page, field_key):
     # role_type = element.get_attribute("role") or element.get_attribute("type")
 
@@ -114,25 +115,30 @@ def fill_field(page, field_key):
                     try_select_or_fill(locator, FIELD_KEYS_TO_ENTRIES["city"])
                 else:
                     locator.fill(FIELD_KEYS_TO_ENTRIES[field_key])
+                print(f"✓ Filled {field_key}")
                 break
         except Exception as e:
             pass
+    else:
+        print(f"✗ Could not find field: {field_key}")
 
 
 def apply_to_single_job(job):
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
         browser_page = browser.new_page()
-        browser_page.goto(job["url"])
-        browser_page.wait_for_load_state("networkidle")
+        # browser_page.goto(job["url"])
+        # browser_page.wait_for_load_state("networkidle")
         try:
-            browser_page.get_by_role("button", name="Apply").click()
+            # browser_page.get_by_role("button", name="Apply", exact=True).first.click()
             browser_page.goto(job["url"])
             browser_page.wait_for_load_state("networkidle")
             for possible_field in POSSIBLE_FORM_FIELDS:
                 fill_field(browser_page, possible_field)
 
-            browser_page.get_by_role("button", name="Submit").click()
+            # browser_page.get_by_role("button", name="Submit").click()
+            browser_page.get_by_role("button", name="Submit application").click()
+            print(f"✓ SUBMITTED 🎉🎉🎉🎉🎉")
         except Exception as e:
             print(f"Error filling form for {job['title']} at {job['company']}: \n{e}")
 
@@ -160,3 +166,12 @@ apply_tool_schema = {
         },
     },
 }
+
+
+if __name__ == "__main__":
+    test_job = {
+        "title": "Backend Engineer",
+        "company": "Veza",
+        "url": "https://job-boards.greenhouse.io/veza/jobs/5631044004",
+    }
+    apply_to_single_job(test_job)
