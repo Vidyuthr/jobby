@@ -84,6 +84,8 @@ def groq_batch_evaluate_jobs(jobs):
         print(f"Processed BATCH #{batch_number}.")
         time.sleep(2)
         raw = chat_completion.choices[0].message.content
+        if raw is None:
+            raise ValueError("Received empty response from Groq API")
         print(raw)
         # Replace Python booleans with JSON booleans
         sanitized = raw.replace("True", "true").replace("False", "false")
