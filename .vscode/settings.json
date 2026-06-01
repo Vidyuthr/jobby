@@ -1,0 +1,32 @@
+{
+  // Enable format on save for all files
+  "editor.formatOnSave": true,
+
+  // Python-specific settings
+  "[python]": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    },
+    "editor.defaultFormatter": "ms-python.black-formatter"
+  },
+
+  // Alternative: if you prefer autopep8 instead of black, uncomment this:
+  // "[python]": {
+  //   "editor.defaultFormatter": "ms-python.autopep8"
+  // },
+
+  // Alternative: if you prefer ruff instead, uncomment this:
+  // "[python]": {
+  //   "editor.defaultFormatter": "charliermarsh.ruff"
+  // },
+
+  // Python formatting options (for black)
+  "black-formatter.args": [
+    "--line-length=88"
+  ],
+
+  // Linting on save
+  "python.linting.enabled": true,
+  "python.linting.lintOnSave": true
+}

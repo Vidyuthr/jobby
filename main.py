@@ -1,6 +1,10 @@
 # main.py
 
-from filters.filter import groq_batch_evaluate_jobs, get_jobs_to_apply, filtered_greenhouse_jobs
+from filters.filter import (
+    groq_batch_evaluate_jobs,
+    get_jobs_to_apply,
+    filtered_greenhouse_jobs,
+)
 from agent.apply import apply_to_single_job
 
 
@@ -24,7 +28,7 @@ def main():
     jobs_to_apply = get_jobs_to_apply(llm_evaluations)
     for i in jobs_to_apply:
         print(i)
-        print('-')
+        print("-")
 
     # Apply to each relevant job
     # if jobs_to_apply:
