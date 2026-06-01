@@ -22,7 +22,7 @@ POSSIBLE_FORM_FIELDS = {
     'city': ['City', 'city',],
     'state': ['State', 'state',],
     'country': ['Country', 'country', 'Country Code'],
-    'linkedin': ['LinkedIn', 'Linkedin', 'LinkedIn Profile', 'LinkedIn URL'],
+    'linkedin': ['LinkedIn', 'Linkedin', 'LinkedIn Profile', 'Linkedin Profile', 'LinkedIn URL', 'Linkedin URL'],
     'resume': ['Resume/CV', 'Resume', 'CV', 'Upload Resume'],
 }
 
