@@ -1,0 +1,43 @@
+{
+  // Enable format on save for all files
+  "editor.formatOnSave": true,
+
+  // Python interpreter (your venv)
+  "python.defaultInterpreterPath": "${workspaceFolder}/venv/bin/python",
+
+  // Python import resolution - add project root to path
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}"
+  ],
+
+  // Enable type checking
+  "python.analysis.typeCheckingMode": "basic",
+
+  // Python-specific settings
+  "[python]": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    },
+    "editor.defaultFormatter": "ms-python.black-formatter"
+  },
+
+  // Alternative: if you prefer autopep8 instead of black, uncomment this:
+  // "[python]": {
+  //   "editor.defaultFormatter": "ms-python.autopep8"
+  // },
+
+  // Alternative: if you prefer ruff instead, uncomment this:
+  // "[python]": {
+  //   "editor.defaultFormatter": "charliermarsh.ruff"
+  // },
+
+  // Python formatting options (for black)
+  "black-formatter.args": [
+    "--line-length=88"
+  ],
+
+  // Linting on save
+  "python.linting.enabled": true,
+  "python.linting.lintOnSave": true
+}
