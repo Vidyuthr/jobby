@@ -1,4 +1,5 @@
 # agent/apply.py
+import time
 
 from playwright.sync_api import sync_playwright
 import os
@@ -99,49 +100,62 @@ def try_select_or_fill(locator, values):
 
 
 # Tries all the possible field names
+# Country code dropdown HTML element is accessed by its id
 def fill_field(page, field_key):
-    # role_type = element.get_attribute("role") or element.get_attribute("type")
-
-    for possible_field_name in POSSIBLE_FORM_FIELDS[field_key]:
+    if field_key == "resume":
         try:
-            locator = page.get_by_label(possible_field_name)
-
-            if locator.is_visible(timeout=2000):
-                if field_key == "resume":
-                    locator.set_input_files(CANDIDATE_RESUME_FILE_PATH)
-                elif field_key == "country":
-                    try_select_or_fill(locator, FIELD_KEYS_TO_ENTRIES["country"])
-                elif field_key == "city":
-                    try_select_or_fill(locator, FIELD_KEYS_TO_ENTRIES["city"])
-                else:
-                    locator.fill(FIELD_KEYS_TO_ENTRIES[field_key])
-                print(f"✓ Filled {field_key}")
-                break
+            page.locator("#resume").set_input_files(CANDIDATE_RESUME_FILE_PATH)
+            print(f"✓ Filled resume")
         except Exception as e:
-            pass
+            print(f"✗ Could not find field: resume")
+        time.sleep(1)
+        return
+    if field_key == "country":
+        try:
+            page.locator("#country").click(timeout=3000)
+            page.keyboard.type("United States")
+            page.get_by_text("United States +1", exact=True).first.click(timeout=3000)
+            print("✓ Filled country")
+        except Exception as e:
+            print("Error filling country", e)
+        return
     else:
-        print(f"✗ Could not find field: {field_key}")
+        for possible_field_name in POSSIBLE_FORM_FIELDS[field_key]:
+            try:
+                locator = page.get_by_label(possible_field_name)
+
+                if locator.is_visible(timeout=2000):
+                    if field_key == "city":
+                        try_select_or_fill(locator, FIELD_KEYS_TO_ENTRIES["city"])
+                    else:
+                        locator.fill(FIELD_KEYS_TO_ENTRIES[field_key])
+                    print(f"✓ Filled {field_key}")
+                    break
+            except Exception as e:
+                pass
+        else:
+            print(f"✗ Could not find field: {field_key}")
 
 
 def apply_to_single_job(job):
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
         browser_page = browser.new_page()
-        # browser_page.goto(job["url"])
-        # browser_page.wait_for_load_state("networkidle")
         try:
-            # browser_page.get_by_role("button", name="Apply", exact=True).first.click()
             browser_page.goto(job["url"])
             browser_page.wait_for_load_state("networkidle")
             for possible_field in POSSIBLE_FORM_FIELDS:
                 fill_field(browser_page, possible_field)
 
-            # browser_page.get_by_role("button", name="Submit").click()
             browser_page.get_by_role("button", name="Submit application").click()
-            print(f"✓ SUBMITTED 🎉🎉🎉🎉🎉")
+            browser_page.wait_for_load_state("networkidle")
         except Exception as e:
             print(f"Error filling form for {job['title']} at {job['company']}: \n{e}")
 
+        if "confirmation" in browser_page.url:
+            print("SUCCESSFULLY SUBMITTED APPLICATION 🎉 🎊 🕺")
+        print(f"Final URL: {browser_page.url}")
+        input("Press Enter to close browser...")
         browser_page.wait_for_load_state("networkidle")
 
 
