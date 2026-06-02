@@ -100,9 +100,13 @@ def try_select_or_fill(locator, values):
     return False
 
 
+
+
 # Tries all the possible field names
 # Country code dropdown HTML element is accessed by its id
 def fill_field(page, field_key):
+    
+
     if field_key == "resume":
         try:
             page.locator("#resume").set_input_files(CANDIDATE_RESUME_FILE_PATH, timeout=3000)
@@ -142,16 +146,31 @@ def apply_to_single_job(job):
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
         browser_page = browser.new_page()
-        try:
-            browser_page.goto(job["url"])
-            browser_page.wait_for_load_state("networkidle")
-            for possible_field in POSSIBLE_FORM_FIELDS:
-                fill_field(browser_page, possible_field)
+        browser_page.goto(job["url"])
+        browser_page.wait_for_load_state("networkidle")
 
-            browser_page.get_by_role("button", name="Submit application").click(timeout=2000)
-            browser_page.wait_for_load_state("networkidle")
-        except Exception as e:
-            print(f"Error filling form for {job['title']} at {job['company']}: \n{e}")
+        fields_locator_filter = browser_page.locator("form input:not([type='submit']):not([type='button']), form select, form textarea")
+        existing_job_fields = fields_locator_filter.all()
+
+        existing_field_statuses = {
+            'In Known Fields': False,
+            'Filled': False
+        }
+        for ejf in existing_job_fields:
+            ejf_json = {
+            'field_id' : ejf.get_attribute("id") or "Unnamed Field",
+            'field_type' : ejf.get_attribute("type") or "textarea/select",
+            'field_aria ': ejf.get_attribute("aria-label") or ejf.get_attribute("aria-labelledby") or "No Aria"
+            }
+            print(ejf_json)
+        # try:
+        #     for possible_field in POSSIBLE_FORM_FIELDS:
+        #         fill_field(browser_page, possible_field)
+
+        #     browser_page.get_by_role("button", name="Submit application").click(timeout=2000)
+        #     browser_page.wait_for_load_state("networkidle")
+        # except Exception as e:
+        #     print(f"Error filling form for {job['title']} at {job['company']}: \n{e}")
 
         if "confirmation" in browser_page.url:
             print("SUCCESSFULLY SUBMITTED APPLICATION 🎉 🎊 🕺")
@@ -181,3 +200,11 @@ apply_tool_schema = {
         },
     },
 }
+
+if __name__ == "__main__":
+    test_job = {
+        'title': 'Software Engineer',
+        'company': 'CrunchyRoll',
+        'url': 'https://job-boards.greenhouse.io/crunchyroll/jobs/6696781'
+    }
+    apply_to_single_job(test_job)
