@@ -38,6 +38,7 @@ POSSIBLE_FORM_FIELDS = {
         "Linkedin URL",
     ],
     "resume": ["Resume/CV", "Resume/CV*", "Resume", "CV", "Upload Resume"],
+    "authorized_to_work": []
 }
 
 FIELD_KEYS_TO_ENTRIES = {
@@ -104,7 +105,7 @@ def try_select_or_fill(locator, values):
 def fill_field(page, field_key):
     if field_key == "resume":
         try:
-            page.locator("#resume").set_input_files(CANDIDATE_RESUME_FILE_PATH)
+            page.locator("#resume").set_input_files(CANDIDATE_RESUME_FILE_PATH, timeout=3000)
             print(f"✓ Filled resume")
         except Exception as e:
             print(f"✗ Could not find field: resume")
@@ -147,7 +148,7 @@ def apply_to_single_job(job):
             for possible_field in POSSIBLE_FORM_FIELDS:
                 fill_field(browser_page, possible_field)
 
-            browser_page.get_by_role("button", name="Submit application").click()
+            browser_page.get_by_role("button", name="Submit application").click(timeout=2000)
             browser_page.wait_for_load_state("networkidle")
         except Exception as e:
             print(f"Error filling form for {job['title']} at {job['company']}: \n{e}")
@@ -180,12 +181,3 @@ apply_tool_schema = {
         },
     },
 }
-
-
-if __name__ == "__main__":
-    test_job = {
-        "title": "Backend Engineer",
-        "company": "Veza",
-        "url": "https://job-boards.greenhouse.io/veza/jobs/5631044004",
-    }
-    apply_to_single_job(test_job)
