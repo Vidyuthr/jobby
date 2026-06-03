@@ -194,58 +194,58 @@ def better_fill_field(
     return False    
 
 
-    def apply_to_single_job(job):
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=False)
-            browser_page = browser.new_page()
-            browser_page.goto(job["url"])
-            browser_page.wait_for_load_state("networkidle")
+def apply_to_single_job(job):
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False)
+        browser_page = browser.new_page()
+        browser_page.goto(job["url"])
+        browser_page.wait_for_load_state("networkidle")
 
-            fields_locator_filter = browser_page.locator(
-                "form input:not([type='submit']):not([type='button']), form select, form textarea"
+        fields_locator_filter = browser_page.locator(
+            "form input:not([type='submit']):not([type='button']), form select, form textarea"
+        )
+        existing_job_field_locators = fields_locator_filter.all()
+        known_fields, unknown_fields = [], []
+        # existing_field_statuses = {"In Known Fields": False, "Filled": False}
+        for ejf_locator in existing_job_field_locators:
+            field_tag_name = ejf_locator.evaluate(
+                "element => element.tagName.toLowerCase()"
             )
-            existing_job_field_locators = fields_locator_filter.all()
-            known_fields, unknown_fields = [], []
-            # existing_field_statuses = {"In Known Fields": False, "Filled": False}
-            for ejf_locator in existing_job_field_locators:
-                field_tag_name = ejf_locator.evaluate(
-                    "element => element.tagName.toLowerCase()"
+            field_id = ejf_locator.get_attribute("id") or "Unnamed Field"
+            field_aria = ejf_locator.get_attribute("aria-label") or None
+            if field_tag_name == "textarea":
+                was_filled = better_fill_field(
+                    browser_page, ejf_locator, field_tag_name, field_id, field_aria
                 )
-                field_id = ejf_locator.get_attribute("id") or "Unnamed Field"
-                field_aria = ejf_locator.get_attribute("aria-label") or None
-                if field_tag_name == "textarea":
-                    was_filled = better_fill_field(
-                        browser_page, ejf_locator, field_tag_name, field_id, field_aria
-                    )
-                if field_tag_name == "input":
-                    input_type = ejf_locator.get_attribute("type") or "text"
-                    input_type = input_type.lower()
-                    if input_type in ["text", "email", "password", "tel", "number"]:
-                        ejf_locator.fill("Sample Text")
-                    elif input_type in ["checkbox", "radio"]:
-                        ejf_locator.check()
-                ejf_json = {
-                    "field_id": ejf_locator.get_attribute("id") or "Unnamed Field",
-                    "field_type": ejf_locator.get_attribute("type") or "textarea/select",
-                    "field_aria ": ejf_locator.get_attribute("aria-label")
-                    or ejf_locator.get_attribute("aria-labelledby")
-                    or "No Aria",
-                }
-                print(ejf_json)
-            # try:
-            #     for possible_field in POSSIBLE_FORM_FIELDS:
-            #         fill_field(browser_page, possible_field)
+            if field_tag_name == "input":
+                input_type = ejf_locator.get_attribute("type") or "text"
+                input_type = input_type.lower()
+                if input_type in ["text", "email", "password", "tel", "number"]:
+                    ejf_locator.fill("Sample Text")
+                elif input_type in ["checkbox", "radio"]:
+                    ejf_locator.check()
+            ejf_json = {
+                "field_id": ejf_locator.get_attribute("id") or "Unnamed Field",
+                "field_type": ejf_locator.get_attribute("type") or "textarea/select",
+                "field_aria ": ejf_locator.get_attribute("aria-label")
+                or ejf_locator.get_attribute("aria-labelledby")
+                or "No Aria",
+            }
+            print(ejf_json)
+        # try:
+        #     for possible_field in POSSIBLE_FORM_FIELDS:
+        #         fill_field(browser_page, possible_field)
 
-            #     browser_page.get_by_role("button", name="Submit application").click(timeout=2000)
-            #     browser_page.wait_for_load_state("networkidle")
-            # except Exception as e:
-            #     print(f"Error filling form for {job['title']} at {job['company']}: \n{e}")
+        #     browser_page.get_by_role("button", name="Submit application").click(timeout=2000)
+        #     browser_page.wait_for_load_state("networkidle")
+        # except Exception as e:
+        #     print(f"Error filling form for {job['title']} at {job['company']}: \n{e}")
 
-            if "confirmation" in browser_page.url:
-                print("SUCCESSFULLY SUBMITTED APPLICATION 🎉 🎊 🕺")
-            print(f"Final URL: {browser_page.url}")
-            input("Press Enter to close browser...")
-            browser_page.wait_for_load_state("networkidle")
+        if "confirmation" in browser_page.url:
+            print("SUCCESSFULLY SUBMITTED APPLICATION 🎉 🎊 🕺")
+        print(f"Final URL: {browser_page.url}")
+        input("Press Enter to close browser...")
+        browser_page.wait_for_load_state("networkidle")
 
 
 apply_tool_schema = {
