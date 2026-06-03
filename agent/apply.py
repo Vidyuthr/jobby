@@ -239,7 +239,7 @@ def apply_to_single_job(job):
             "form input:not([type='submit']):not([type='button']), form select, form textarea"
         )
         existing_job_field_locators = fields_locator_filter.all()
-        known_fields, unknown_fields = [], []
+        unknown_fields = []
         # existing_field_statuses = {"In Known Fields": False, "Filled": False}
         for ejf_locator in existing_job_field_locators:
             try:
@@ -265,9 +265,7 @@ def apply_to_single_job(job):
                 was_filled = better_fill_field(
                     browser_page, ejf_locator, field_tag_name, field_id, field_aria
                 )
-                if was_filled:
-                    known_fields.append(field_id)
-                else:
+                if not was_filled:
                     unknown_fields.append(
                         {
                             "Field ID": field_id,
@@ -284,10 +282,16 @@ def apply_to_single_job(job):
                     was_filled = better_fill_field(
                         browser_page, ejf_locator, field_tag_name, field_id, field_aria
                     )
-                    if was_filled:
-                        known_fields.append(field_id)
-                    else:
-                        unknown_fields.append(field_id)
+                    if not was_filled:
+                        unknown_fields.append(
+                            {
+                                "Field ID": field_id,
+                                "field_type": ejf_locator.get_attribute("type")
+                                or "textarea/select",
+                                "Field Aria": field_aria,
+                                "Field Tag": field_tag_name,
+                            }
+                        )
                 # if input_type in ["checkbox", "radio"]:
                 #     ejf_locator.check()
         # try:
@@ -301,7 +305,6 @@ def apply_to_single_job(job):
 
         if "confirmation" in browser_page.url:
             print("SUCCESSFULLY SUBMITTED APPLICATION 🎉 🎊 🕺")
-        print(f"known fields: ", known_fields)
         print(f"unknown fields: ", unknown_fields)
         print(f"Final URL: {browser_page.url}")
         input("Press Enter to close browser...")
