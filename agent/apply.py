@@ -190,8 +190,10 @@ def better_fill_field(
                     print(f"✓ Filled {possible_field}")
                     return True
                 except Exception as e:
-                    print(f"❌ Could not fill {possible_field.upper()} field; exception {e}")
-    return False    
+                    print(
+                        f"❌ Could not fill {possible_field.upper()} field; exception {e}"
+                    )
+    return False
 
 
 def apply_to_single_job(job):
@@ -217,13 +219,27 @@ def apply_to_single_job(job):
                 was_filled = better_fill_field(
                     browser_page, ejf_locator, field_tag_name, field_id, field_aria
                 )
+                if was_filled:
+                    known_fields.append(field_id)
+                else:
+                    unknown_fields.append(
+                        {
+                            "Field ID": field_id,
+                        }
+                    )
             if field_tag_name == "input":
                 input_type = ejf_locator.get_attribute("type") or "text"
                 input_type = input_type.lower()
-                if input_type in ["text", "email", "password", "tel", "number"]:
-                    ejf_locator.fill("Sample Text")
-                elif input_type in ["checkbox", "radio"]:
-                    ejf_locator.check()
+                if input_type in ["text", "file", "email", "password", "tel", "number"]:
+                    was_filled = better_fill_field(
+                        browser_page, ejf_locator, field_tag_name, field_id, field_aria
+                    )
+                    if was_filled:
+                        known_fields.append(field_id)
+                    else:
+                        unknown_fields.append(field_id)
+                # elif input_type in ["checkbox", "radio"]:
+                #     ejf_locator.check()
             ejf_json = {
                 "field_id": ejf_locator.get_attribute("id") or "Unnamed Field",
                 "field_type": ejf_locator.get_attribute("type") or "textarea/select",
@@ -243,6 +259,8 @@ def apply_to_single_job(job):
 
         if "confirmation" in browser_page.url:
             print("SUCCESSFULLY SUBMITTED APPLICATION 🎉 🎊 🕺")
+        print(f"known fields: ", known_fields)
+        print(f"unknown fields: ", unknown_fields)
         print(f"Final URL: {browser_page.url}")
         input("Press Enter to close browser...")
         browser_page.wait_for_load_state("networkidle")
