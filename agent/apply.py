@@ -38,7 +38,7 @@ POSSIBLE_FORM_FIELDS = {
         "Linkedin URL",
     ],
     "resume": ["Resume/CV", "Resume/CV*", "Resume", "CV", "Upload Resume"],
-    "authorized_to_work": []
+    "authorized_to_work": [],
 }
 
 FIELD_KEYS_TO_ENTRIES = {
@@ -100,16 +100,15 @@ def try_select_or_fill(locator, values):
     return False
 
 
-
-
 # Tries all the possible field names
 # Country code dropdown HTML element is accessed by its id
 def fill_field(page, field_key):
-    
 
     if field_key == "resume":
         try:
-            page.locator("#resume").set_input_files(CANDIDATE_RESUME_FILE_PATH, timeout=3000)
+            page.locator("#resume").set_input_files(
+                CANDIDATE_RESUME_FILE_PATH, timeout=3000
+            )
             print(f"✓ Filled resume")
         except Exception as e:
             print(f"✗ Could not find field: resume")
@@ -142,6 +141,8 @@ def fill_field(page, field_key):
             print(f"✗ Could not find field: {field_key}")
 
 
+def better_fill_field(page, field_id):
+    return
 def apply_to_single_job(job):
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
@@ -149,18 +150,34 @@ def apply_to_single_job(job):
         browser_page.goto(job["url"])
         browser_page.wait_for_load_state("networkidle")
 
-        fields_locator_filter = browser_page.locator("form input:not([type='submit']):not([type='button']), form select, form textarea")
+        fields_locator_filter = browser_page.locator(
+            "form input:not([type='submit']):not([type='button']), form select, form textarea"
+        )
         existing_job_fields = fields_locator_filter.all()
-
-        existing_field_statuses = {
-            'In Known Fields': False,
-            'Filled': False
-        }
+        known_fields, unknown_fields = [], []
+        # existing_field_statuses = {"In Known Fields": False, "Filled": False}
         for ejf in existing_job_fields:
+            field_tag_name = ejf.evaluate("element => element.tagName.toLowerCase()")
+            field_id = ejf.get_attribute("id") or "Unnamed Field"
+            field_area = ejf.get_attribute("aria-label") or None
+            if field_tag_name == "textarea" or (
+                field_tag_name == "input"
+                and input_type in ["text", "email", "tel", "number"]
+            ):
+                better_fill_field(browser_page, field_id)
+            if field_tag_name == "input":
+                input_type = ejf.get_attribute("type") or "text"
+                input_type = input_type.lower()
+                if input_type in ["text", "email", "password", "tel", "number"]:
+                    ejf.fill("Sample Text")
+                elif input_type in ["checkbox", "radio"]:
+                    ejf.check()
             ejf_json = {
-            'field_id' : ejf.get_attribute("id") or "Unnamed Field",
-            'field_type' : ejf.get_attribute("type") or "textarea/select",
-            'field_aria ': ejf.get_attribute("aria-label") or ejf.get_attribute("aria-labelledby") or "No Aria"
+                "field_id": ejf.get_attribute("id") or "Unnamed Field",
+                "field_type": ejf.get_attribute("type") or "textarea/select",
+                "field_aria ": ejf.get_attribute("aria-label")
+                or ejf.get_attribute("aria-labelledby")
+                or "No Aria",
             }
             print(ejf_json)
         # try:
@@ -203,8 +220,8 @@ apply_tool_schema = {
 
 if __name__ == "__main__":
     test_job = {
-        'title': 'Software Engineer',
-        'company': 'CrunchyRoll',
-        'url': 'https://job-boards.greenhouse.io/crunchyroll/jobs/6696781'
+        "title": "Software Engineer",
+        "company": "CrunchyRoll",
+        "url": "https://job-boards.greenhouse.io/crunchyroll/jobs/6696781",
     }
     apply_to_single_job(test_job)
