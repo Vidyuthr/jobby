@@ -214,7 +214,18 @@ def apply_to_single_job(job):
                 "element => element.tagName.toLowerCase()"
             )
             field_id = ejf_locator.get_attribute("id") or "Unnamed Field"
-            field_aria = ejf_locator.get_attribute("aria-label") or None
+            field_aria_raw = (
+                ejf_locator.get_attribute("aria-label")
+                or ejf_locator.get_attribute("aria-labelledby")
+                or None
+            )
+            if field_aria_raw and field_aria_raw.endswith(
+                "-label"
+            ):  # if it is an ID reference
+                field_aria = browser_page.locator(f"#{field_aria_raw}").text_content()
+            else:
+                field_aria = field_aria_raw
+
             if field_tag_name == "textarea":
                 was_filled = better_fill_field(
                     browser_page, ejf_locator, field_tag_name, field_id, field_aria
