@@ -4,16 +4,20 @@ import time
 from playwright.sync_api import sync_playwright
 import os
 from dotenv import load_dotenv
+from config.candidate import (
+    CANDIDATE_FIRST_NAME,
+    CANDIDATE_LAST_NAME,
+    CANDIDATE_EMAIL,
+    CANDIDATE_PHONE_NUMBER,
+    CANDIDATE_RESUME_FILE_PATH,
+    CANDIDATE_LINKEDIN,
+    get_candidate_info_for_llm,
+)
 
 load_dotenv()
 
-# Candidate information
-CANDIDATE_FIRST_NAME = "Vidyuth"
-CANDIDATE_LAST_NAME = "Ramkumar"
-CANDIDATE_EMAIL = "vidyuth.ramkumar@gmail.com"
-CANDIDATE_PHONE_NUMBER = os.getenv("CANDIDATE_PHONE_NUMBER")
-CANDIDATE_RESUME_FILE_PATH = os.getenv("RESUME_FILE_PATH")
-CANDIDATE_LINKEDIN = "https://www.linkedin.com/in/vidyuth-ramkumar/"
+llm_candidate_context = get_candidate_info_for_llm()
+
 
 POSSIBLE_FORM_FIELDS = {
     "first_name": ["First Name", "first_name", "firstName"],
@@ -32,7 +36,6 @@ POSSIBLE_FORM_FIELDS = {
         "Candidate-location",
         "candidate-location",
     ],
-    # "location": ["Location", "location", "Candidate-location", "candidate-location"],
     "state": [
         "State",
         "state",
@@ -149,9 +152,7 @@ def fill_field(page, field_key):
             print(f"✗ Could not find field: {field_key}")
 
 
-def better_fill_field(
-    browser_page, field_locator, field_tag_name, field_id, field_aria
-):
+def better_fill_field(browser_page, field_locator, field_id, field_aria):
     for possible_field in POSSIBLE_FORM_FIELDS:
         if (
             field_id in POSSIBLE_FORM_FIELDS[possible_field]
@@ -263,7 +264,7 @@ def apply_to_single_job(job):
             print(f"Resolved field_aria: {field_aria}")
             if field_tag_name == "textarea":
                 was_filled = better_fill_field(
-                    browser_page, ejf_locator, field_tag_name, field_id, field_aria
+                    browser_page, ejf_locator, field_id, field_aria
                 )
                 if not was_filled:
                     unknown_fields.append(
@@ -280,7 +281,7 @@ def apply_to_single_job(job):
                 input_type = input_type.lower()
                 if input_type in ["text", "file", "email", "password", "tel", "number"]:
                     was_filled = better_fill_field(
-                        browser_page, ejf_locator, field_tag_name, field_id, field_aria
+                        browser_page, ejf_locator, field_id, field_aria
                     )
                     if not was_filled:
                         unknown_fields.append(
