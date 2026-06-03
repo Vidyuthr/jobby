@@ -1,8 +1,9 @@
 # agent/apply.py
 import time
-
-from playwright.sync_api import sync_playwright
 import os
+from playwright.sync_api import sync_playwright
+
+from groq import Groq
 from dotenv import load_dotenv
 from config.candidate import (
     CANDIDATE_FIRST_NAME,
@@ -15,8 +16,7 @@ from config.candidate import (
 )
 
 load_dotenv()
-
-llm_candidate_context = get_candidate_info_for_llm()
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 
 POSSIBLE_FORM_FIELDS = {
@@ -303,13 +303,49 @@ def apply_to_single_job(job):
         #     browser_page.wait_for_load_state("networkidle")
         # except Exception as e:
         #     print(f"Error filling form for {job['title']} at {job['company']}: \n{e}")
-
+        if unknown_fields:
+            groq_responses = {}
         if "confirmation" in browser_page.url:
             print("SUCCESSFULLY SUBMITTED APPLICATION 🎉 🎊 🕺")
         print(f"unknown fields: ", unknown_fields)
         print(f"Final URL: {browser_page.url}")
         input("Press Enter to close browser...")
         browser_page.wait_for_load_state("networkidle")
+
+
+def autofill_misc_unknown_questions(questions):
+    for q in questions:
+        if (
+            "non-compete" in q["Field Aria"] or "non-competetition" in q["Field Aria"]
+        ) and "*" in q["Field Aria"]:
+            q["Response"] = "No"
+        if (
+            "require any immigration support" in q["Field Aria"]
+            and "*" in q["Field Aria"]
+        ):
+            q["Response"] = "No"
+        if "Are you authorized" in q["Field Aria"]:
+            q["Response"] = "Yes"
+
+    return questions
+
+
+def get_adaptive_responses(questions):
+    llm_candidate_context = get_candidate_info_for_llm()
+    chat_completion = client.chat.completions.create(
+        messages=[
+            {
+                "role": "user",
+                "content": f"",
+            },
+            {
+                "role": "system",
+                "content": f"You are filling out a job application form on behalf of Vidyuth Subbiah Ramkumar, a new graduate software/ML engineer. {llm_candidate_context}.\nAdd a Response field to each of the questions with an appropriate response and return only the JSON. For optional questions without an asterisk (*) such as voluntary disclosures, skip them.",
+            },
+        ],
+        model="llama-3.3-70b-versatile",
+    )
+    return chat_completion.choices[0].message.content
 
 
 apply_tool_schema = {
