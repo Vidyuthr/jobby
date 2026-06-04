@@ -45,7 +45,6 @@ POSSIBLE_FORM_FIELDS = {
         "LinkedIn",
         "Linkedin",
         "LinkedIn Profile",
-        "Linkedin Profile",
         "LinkedIn URL",
         "Linkedin URL",
     ],
@@ -158,6 +157,7 @@ def better_fill_field(browser_page, field_locator, field_id, field_aria):
             field_id in POSSIBLE_FORM_FIELDS[possible_field]
             or field_aria in POSSIBLE_FORM_FIELDS[possible_field]
         ):  # Found it in any of the possible fields' list of field name variations
+            print("Found field in PFFs using bff func, field:", field_id)
             if possible_field == "resume":
                 print(
                     f"Interacting with RESUME field. field_id: {field_id}, possible_field field variation map: {possible_field}"
@@ -229,6 +229,25 @@ def better_fill_field(browser_page, field_locator, field_id, field_aria):
     return False
 
 
+def autofill_misc_unknown_questions(questions):
+    for q in questions:
+        if q["Field Aria"]:
+            if (
+                "non-compete" in q["Field Aria"]
+                or "non-competetition" in q["Field Aria"]
+            ) and "*" in q["Field Aria"]:
+                q["Response"] = "No"
+            if (
+                "require any immigration support" in q["Field Aria"]
+                and "*" in q["Field Aria"]
+            ):
+                q["Response"] = "No"
+            if "Are you authorized" in q["Field Aria"]:
+                q["Response"] = "Yes"
+
+    return questions
+
+
 def apply_to_single_job(job):
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
@@ -241,15 +260,30 @@ def apply_to_single_job(job):
         )
         existing_job_field_locators = fields_locator_filter.all()
         unknown_fields = []
-        # existing_field_statuses = {"In Known Fields": False, "Filled": False}
-        for ejf_locator in existing_job_field_locators:
+        filled_fields = []
+        i = 0
+        while i < len(existing_job_field_locators):
+            ejf_locator = existing_job_field_locators[i]
+            DOM_index = ejf_locator.evaluate(
+                "el => Array.from(document.querySelectorAll('input, select, textarea')).indexOf(el)"
+            )
+            if DOM_index in filled_fields:
+                i += 1
+                continue
+
+            # GETTING LOCATOR DETAILS (HTML TAG, ID, ARIA)
+            # Tag name
             try:
                 field_tag_name = ejf_locator.evaluate(
                     "element => element.tagName.toLowerCase()"
                 )
             except:
+                i += 1
                 continue
+
+            # ID
             field_id = ejf_locator.get_attribute("id") or "Unnamed Field"
+            # ARIA resolution to label text
             field_aria_raw = (
                 ejf_locator.get_attribute("aria-label")
                 or ejf_locator.get_attribute("aria-labelledby")
@@ -262,6 +296,16 @@ def apply_to_single_job(job):
             else:
                 field_aria = field_aria_raw
             print(f"Resolved field_aria: {field_aria}")
+
+            print(
+                {
+                    "ID": field_id,
+                    "tag": field_tag_name,
+                    "ARIA": field_aria,
+                }
+            )
+
+            # FILLING THE FIELD
             if field_tag_name == "textarea":
                 was_filled = better_fill_field(
                     browser_page, ejf_locator, field_id, field_aria
@@ -276,10 +320,20 @@ def apply_to_single_job(job):
                             "Field Tag": field_tag_name,
                         }
                     )
+                else:  # Successfully filled
+                    filled_fields.append(DOM_index)
             if field_tag_name == "input":
                 input_type = ejf_locator.get_attribute("type") or "text"
                 input_type = input_type.lower()
-                if input_type in ["text", "file", "email", "password", "tel", "number"]:
+                if input_type in [
+                    "text",
+                    "file",
+                    "email",
+                    "url",
+                    "password",
+                    "tel",
+                    "number",
+                ]:
                     was_filled = better_fill_field(
                         browser_page, ejf_locator, field_id, field_aria
                     )
@@ -293,8 +347,20 @@ def apply_to_single_job(job):
                                 "Field Tag": field_tag_name,
                             }
                         )
+                    else:  # Successfully filled
+                        filled_fields.append(DOM_index)
+                        field_class = ejf_locator.get_attribute("class") or ""
+                        if "select__input" in field_class:
+                            existing_job_field_locators = fields_locator_filter.all()
+                            i = 0
+                            continue
                 # if input_type in ["checkbox", "radio"]:
                 #     ejf_locator.check()
+            i += 1
+            # END OF WHILE LOOP
+
+        # SUBMIT
+
         # try:
         #     for possible_field in POSSIBLE_FORM_FIELDS:
         #         fill_field(browser_page, possible_field)
@@ -303,31 +369,19 @@ def apply_to_single_job(job):
         #     browser_page.wait_for_load_state("networkidle")
         # except Exception as e:
         #     print(f"Error filling form for {job['title']} at {job['company']}: \n{e}")
+
+        # AUTOFILL UNKNOWN
+
         if unknown_fields:
-            groq_responses = {}
+            unknown_fields = autofill_misc_unknown_questions(unknown_fields)
+        print(f"unknown fields: ", unknown_fields)
+
         if "confirmation" in browser_page.url:
             print("SUCCESSFULLY SUBMITTED APPLICATION 🎉 🎊 🕺")
-        print(f"unknown fields: ", unknown_fields)
+
         print(f"Final URL: {browser_page.url}")
         input("Press Enter to close browser...")
         browser_page.wait_for_load_state("networkidle")
-
-
-def autofill_misc_unknown_questions(questions):
-    for q in questions:
-        if (
-            "non-compete" in q["Field Aria"] or "non-competetition" in q["Field Aria"]
-        ) and "*" in q["Field Aria"]:
-            q["Response"] = "No"
-        if (
-            "require any immigration support" in q["Field Aria"]
-            and "*" in q["Field Aria"]
-        ):
-            q["Response"] = "No"
-        if "Are you authorized" in q["Field Aria"]:
-            q["Response"] = "Yes"
-
-    return questions
 
 
 def get_adaptive_responses(questions):
@@ -371,9 +425,14 @@ apply_tool_schema = {
 }
 
 if __name__ == "__main__":
+    # test_job = {
+    #     "title": "Software Engineer",
+    #     "company": "CrunchyRoll",
+    #     "url": "https://job-boards.greenhouse.io/crunchyroll/jobs/6696781",
+    # }
     test_job = {
-        "title": "Software Engineer",
-        "company": "CrunchyRoll",
-        "url": "https://job-boards.greenhouse.io/crunchyroll/jobs/6696781",
+        "title": "TPM, AI Performance",
+        "company": "Figma",
+        "url": "https://job-boards.greenhouse.io/figma/jobs/5837760004?gh_jid=5837760004",
     }
     apply_to_single_job(test_job)
