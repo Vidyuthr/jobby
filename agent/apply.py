@@ -160,7 +160,7 @@ def better_fill_field(browser_page, field_locator, field_id, field_aria):
             print("Found field in PFFs using bff func, field:", field_id)
             if possible_field == "resume":
                 print(
-                    f"Interacting with RESUME field. field_id: {field_id}, possible_field field variation map: {possible_field}"
+                    f"BFF Interacting with RESUME field. field_id: {field_id}, possible_field field variation map: {possible_field}"
                 )
                 try:
                     browser_page.locator("#resume").set_input_files(
@@ -210,6 +210,7 @@ def better_fill_field(browser_page, field_locator, field_id, field_aria):
                     print("✓ Filled city")
                 except Exception as e:
                     print(f"❌ Could not fill CITY field; exception {e}")
+                return True
             else:
                 try:
                     print(
@@ -229,9 +230,12 @@ def better_fill_field(browser_page, field_locator, field_id, field_aria):
     return False
 
 
-def autofill_misc_unknown_questions(questions):
+def autofill_misc_unknown_questions(questions, company_name):
     for q in questions:
         if q["Field Aria"]:
+            aria_lower = q["Field Aria"].lower()
+            company_lower = company_name.lower()
+
             if (
                 "non-compete" in q["Field Aria"]
                 or "non-competetition" in q["Field Aria"]
@@ -244,6 +248,11 @@ def autofill_misc_unknown_questions(questions):
                 q["Response"] = "No"
             if "Are you authorized" in q["Field Aria"]:
                 q["Response"] = "Yes"
+            if company_lower in aria_lower and (
+                "ever worked for" in aria_lower
+                or ("worked for" in aria_lower and "before" in aria_lower)
+            ):
+                q["Response"] = "No"
 
     return questions
 
@@ -320,8 +329,11 @@ def apply_to_single_job(job):
                             "Field Tag": field_tag_name,
                         }
                     )
-                else:  # Successfully filled
+                else:  # Successfully filled - refresh locators to handle DOM changes
                     filled_fields.append(DOM_index)
+                    existing_job_field_locators = fields_locator_filter.all()
+                    i = 0
+                    continue
             if field_tag_name == "input":
                 input_type = ejf_locator.get_attribute("type") or "text"
                 input_type = input_type.lower()
@@ -347,13 +359,11 @@ def apply_to_single_job(job):
                                 "Field Tag": field_tag_name,
                             }
                         )
-                    else:  # Successfully filled
+                    else:  # Successfully filled - refresh locators to handle DOM changes
                         filled_fields.append(DOM_index)
-                        field_class = ejf_locator.get_attribute("class") or ""
-                        if "select__input" in field_class:
-                            existing_job_field_locators = fields_locator_filter.all()
-                            i = 0
-                            continue
+                        existing_job_field_locators = fields_locator_filter.all()
+                        i = 0
+                        continue
                 # if input_type in ["checkbox", "radio"]:
                 #     ejf_locator.check()
             i += 1
@@ -373,7 +383,9 @@ def apply_to_single_job(job):
         # AUTOFILL UNKNOWN
 
         if unknown_fields:
-            unknown_fields = autofill_misc_unknown_questions(unknown_fields)
+            unknown_fields = autofill_misc_unknown_questions(
+                unknown_fields, job["company"]
+            )
         print(f"unknown fields: ", unknown_fields)
 
         if "confirmation" in browser_page.url:
