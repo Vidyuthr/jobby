@@ -30,7 +30,7 @@ COMPANY_SLUGS = [
     "motional",
     "earnest",
     "astranis",
-    "nexhealth",
+    # "nexhealth",
     "dropbox",
     "kodiak",
     "crunchyroll",

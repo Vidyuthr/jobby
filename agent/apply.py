@@ -237,7 +237,9 @@ def extract_field_metadata(ejf_locator, browser_page):
     Returns: (field_tag_name, field_id, field_aria) or (None, None, None) if error
     """
     try:
-        field_tag_name = ejf_locator.evaluate("element => element.tagName.toLowerCase()")
+        field_tag_name = ejf_locator.evaluate(
+            "element => element.tagName.toLowerCase()"
+        )
     except:
         return None, None, None
 
@@ -250,7 +252,11 @@ def extract_field_metadata(ejf_locator, browser_page):
         or None
     )
     if field_aria_raw and field_aria_raw.endswith("-label"):
-        field_aria = browser_page.locator(f"#{field_aria_raw}").text_content()
+        # Use attribute selector to handle IDs that start with numbers
+        try:
+            field_aria = browser_page.locator(f'[id="{field_aria_raw}"]').text_content(timeout=2000)
+        except:
+            field_aria = field_aria_raw
     else:
         field_aria = field_aria_raw
 
@@ -553,11 +559,12 @@ def get_adaptive_responses(questions):
 {llm_candidate_context}
 
 # Instructions:
-- Add a "Response" field to each question with an appropriate response
+- Add a "Response" field to EVERY question EXCEPT voluntary EEO disclosure fields
+- EEO fields to skip: gender identity, race/ethnicity, sexual orientation, transgender, disability, veteran status
 - For questions with "dropdown_options", you MUST select EXACTLY one option from that list (copy it exactly, including capitalization)
-- For optional questions without an asterisk (*) such as voluntary disclosures (gender, ethnicity, veteran status, disability status), skip them by not adding a Response field
+- If candidate lacks experience for a question (like "Where have you worked in X?"), respond with "N/A" or "No direct experience" - DO NOT skip it
+- Answer ALL questions about skills, preferences, relocation, websites, etc.
 - Keep responses concise and professional
-- For years of experience questions, be accurate based on the candidate's profile (approximately 2 years)
 - Return ONLY valid JSON array with no markdown formatting, no ```json blocks, just the raw JSON array
 """,
             },
@@ -619,13 +626,14 @@ def fill_unknown_fields_with_responses(browser_page, unknown_fields):
         try:
             # Use ID selector to find the field
             if field_tag == "textarea":
-                browser_page.locator(f"#{field_id}").fill(response, timeout=3000)
+                browser_page.locator(f'[id="{field_id}"]').fill(response, timeout=3000)
                 print(f"✓ Filled {field_id} with: {response[:50]}...")
                 filled_count += 1
             elif field_tag == "input":
                 field_type = field.get("field_type", "text")
                 if field_type in ["text", "email", "url", "tel", "number"]:
-                    locator = browser_page.locator(f"#{field_id}")
+                    # Use attribute selector for IDs starting with numbers
+                    locator = browser_page.locator(f'[id="{field_id}"]')
 
                     # Check if this field has dropdown options (from extraction phase)
                     if "dropdown_options" in field:
@@ -702,8 +710,8 @@ if __name__ == "__main__":
     #     "url": "https://job-boards.greenhouse.io/crunchyroll/jobs/6696781",
     # }
     test_job = {
-        "title": "Flight Software Engineer",
-        "company": "Astranis",
-        "url": "https://job-boards.greenhouse.io/astranis/jobs/4015622006",
+        "title": "Autonomy Systems Software Engineer",
+        "company": "Kodiak",
+        "url": "https://job-boards.greenhouse.io/kodiak/jobs/4204664009",
     }
     apply_to_single_job(test_job)
