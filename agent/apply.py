@@ -745,39 +745,3 @@ def fill_unknown_fields_with_responses(browser_page, unknown_fields):
 
     print(f"\n📝 Successfully filled {filled_count} unknown fields using LLM responses")
     return filled_count
-
-
-# apply_tool_schema = {
-#     "type": "function",
-#     "function": {
-#         "name": "apply_greenhouse_job",
-#         "description": f"Apply to a specific job on the Greenhouse Job Board with correct profile/resume information on candidate {CANDIDATE_FIRST_NAME} {CANDIDATE_LAST_NAME}.",
-#         "parameters": {
-#             "type": "object",
-#             "properties": {
-#                 "title": {
-#                     "type": "string",
-#                     "description": "The title of the Greenhouse job role that you need to apply to",
-#                 },
-#                 "url": {
-#                     "type": "string",
-#                     "description": "The Greenhouse job posting url that you need to access to apply to the job",
-#                 },
-#             },
-#             "required": ["title", "url"],
-#         },
-#     },
-# }
-
-if __name__ == "__main__":
-    # test_job = {
-    #     "title": "Software Engineer",
-    #     "company": "CrunchyRoll",
-    #     "url": "https://job-boards.greenhouse.io/crunchyroll/jobs/6696781",
-    # }
-    test_job = {
-        "title": "Software Development Engineer, C++",
-        "company": "Network Optix",
-        "url": "https://job-boards.greenhouse.io/networkoptix/jobs/5101541007",
-    }
-    apply_to_single_job(test_job)
