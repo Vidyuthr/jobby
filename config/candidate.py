@@ -29,18 +29,41 @@ CANDIDATE_CERTIFICATIONS = "Stanford ML Specialization (Supervised learning, dee
 
 CANDIDATE_PERSONALITY = "- Very very curious and eager to learn everything deeply. Constant learner, loves new things. Asks lots of questions. Passionate. - Constantly thinks of ideas, being a two-time founder. Always thinking how to improve processes/operations, or just ideas in general for products/solutions/features. - Approachable, kind, and loves to work with people, able to explain/present very very well due to speech & debate nationalist in highschool and many startup pitches/competitions – so he has soft skills and presentation skills to both technical and non-technical audiences"
 
+CANDIDATE_EDUCATION = {
+    "degree": "BS Computer Science + Business Administration",
+    "discipline": "Computer Science",
+    "school": "Northeastern University",
+    "honors": "Honors Program, Dean's List",
+    "start_month": "September",
+    "start_year": "2022",
+    "end_month": "May",
+    "end_year": "2026",
+}
+
 
 def get_candidate_info_for_llm():
     """
     Returns a formatted string of candidate information for use in LLM prompts.
     This is ideal for system messages or context injection.
     """
+    # Format education section from dict
+    edu = CANDIDATE_EDUCATION
+    education_section = f"""- Degree: {edu['degree']}
+- Discipline: {edu['discipline']}
+- School: {edu['school']}
+- Honors: {edu['honors']}
+- Start Date: {edu['start_month']} {edu['start_year']}
+- End Date: {edu['end_month']} {edu['end_year']}"""
+
     return f"""# Candidate Information
 
 ## Basic Details
 - Name: {CANDIDATE_FIRST_NAME} {CANDIDATE_LAST_NAME}
 - Email: {CANDIDATE_EMAIL}
 - LinkedIn: {CANDIDATE_LINKEDIN}
+
+## Education
+{education_section}
 
 ## Overall Profile
 {OVERALL_CANDIDATE_PROFILE}
@@ -73,6 +96,7 @@ def get_candidate_profile_dict():
         "phone": CANDIDATE_PHONE_NUMBER,
         "linkedin": CANDIDATE_LINKEDIN,
         "resume_path": CANDIDATE_RESUME_FILE_PATH,
+        "education": CANDIDATE_EDUCATION,
         "overall_profile": OVERALL_CANDIDATE_PROFILE,
         "skills": CANDIDATE_SKILLS,
         "experience": CANDIDATE_EXPERIENCE,
