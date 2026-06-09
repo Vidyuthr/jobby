@@ -13,6 +13,7 @@ from config.candidate import (
     CANDIDATE_PHONE_NUMBER,
     CANDIDATE_RESUME_FILE_PATH,
     CANDIDATE_LINKEDIN,
+    CANDIDATE_GITHUB,
     get_candidate_info_for_llm,
 )
 
@@ -254,7 +255,9 @@ def extract_field_metadata(ejf_locator, browser_page):
     if field_aria_raw and field_aria_raw.endswith("-label"):
         # Use attribute selector to handle IDs that start with numbers
         try:
-            field_aria = browser_page.locator(f'[id="{field_aria_raw}"]').text_content(timeout=2000)
+            field_aria = browser_page.locator(f'[id="{field_aria_raw}"]').text_content(
+                timeout=2000
+            )
         except:
             field_aria = field_aria_raw
     else:
@@ -293,6 +296,7 @@ def extract_dropdown_options(browser_page, ejf_locator):
 
 
 def autofill_misc_unknown_questions(questions, company_name):
+    autofilled_count = 0
     for q in questions:
         if q["Field Aria"]:
             aria_lower = q["Field Aria"].lower()
@@ -303,19 +307,48 @@ def autofill_misc_unknown_questions(questions, company_name):
                 or "non-competetition" in q["Field Aria"]
             ) and "*" in q["Field Aria"]:
                 q["Response"] = "No"
+                autofilled_count += 1
+                print(f"  ✓ Auto-filled non-compete: {q['Field Aria']}")
             if (
                 "require any immigration support" in q["Field Aria"]
                 and "*" in q["Field Aria"]
             ):
                 q["Response"] = "No"
-            if "Are you authorized" in q["Field Aria"]:
+                autofilled_count += 1
+                print(f"  ✓ Auto-filled immigration: {q['Field Aria']}")
+            if "authorized" in aria_lower and ("work" in aria_lower or "employment" in aria_lower):
                 q["Response"] = "Yes"
+                autofilled_count += 1
+                print(f"  ✓ Auto-filled work authorization: {q['Field Aria']}")
             if company_lower in aria_lower and (
                 "ever worked for" in aria_lower
                 or ("worked for" in aria_lower and "before" in aria_lower)
             ):
                 q["Response"] = "No"
+                autofilled_count += 1
+                print(f"  ✓ Auto-filled work history: {q['Field Aria']}")
+            if "will you" in aria_lower and (
+                "require sponsorship" in aria_lower or "sponsor" in aria_lower
+            ):
+                q["Response"] = "No"
+                autofilled_count += 1
+                print(f"  ✓ Auto-filled sponsorship: {q['Field Aria']}")
+            # LinkedIn URL autofill
+            if "linkedin" in aria_lower and (
+                "profile" in aria_lower or "url" in aria_lower or "link" in aria_lower
+            ):
+                q["Response"] = CANDIDATE_LINKEDIN
+                autofilled_count += 1
+                print(f"  ✓ Auto-filled LinkedIn: {q['Field Aria']}")
+            # GitHub URL autofill
+            if "github" in aria_lower and (
+                "profile" in aria_lower or "url" in aria_lower or "link" in aria_lower or "page" in aria_lower or "account" in aria_lower
+            ):
+                q["Response"] = CANDIDATE_GITHUB
+                autofilled_count += 1
+                print(f"  ✓ Auto-filled GitHub: {q['Field Aria']}")
 
+    print(f"\n✓ Auto-filled {autofilled_count} fields")
     return questions
 
 
@@ -376,6 +409,27 @@ def process_form_fields(browser_page, fields_locator_filter):
             i = 0
             continue
         else:
+            # Filter out irrelevant fields before adding to unknown_fields
+            should_skip = False
+
+            # Skip search input fields (phone number country code search, etc.)
+            if field_id and (
+                "search-input" in field_id.lower() or "search" in field_id.lower()
+            ):
+                should_skip = True
+
+            # Skip unnamed fields with no aria label
+            if field_id == "Unnamed Field" and not field_aria:
+                should_skip = True
+
+            # Skip fields with "Search" as aria label
+            if field_aria and field_aria.strip() == "Search":
+                should_skip = True
+
+            if should_skip:
+                i += 1
+                continue
+
             # Add to unknown fields
             field_info = {
                 "Field ID": field_id,
@@ -543,7 +597,10 @@ def get_adaptive_responses(questions):
     questions_needing_responses = [q for q in questions if "Response" not in q]
 
     if not questions_needing_responses:
+        print("  ℹ️  All questions already have responses from autofill")
         return questions
+
+    print(f"  📤 Sending {len(questions_needing_responses)} questions to LLM")
 
     llm_candidate_context = get_candidate_info_for_llm()
 
@@ -563,7 +620,7 @@ def get_adaptive_responses(questions):
 - EEO fields to skip: gender identity, race/ethnicity, sexual orientation, transgender, disability, veteran status
 - For questions with "dropdown_options", you MUST select EXACTLY one option from that list (copy it exactly, including capitalization)
 - If candidate lacks experience for a question (like "Where have you worked in X?"), respond with "N/A" or "No direct experience" - DO NOT skip it
-- Answer ALL questions about skills, preferences, relocation, websites, etc.
+- Answer ALL questions about skills, preferences, relocation, websites, LinkedIn/GitHub URLs, etc.
 - Keep responses concise and professional
 - Return ONLY valid JSON array with no markdown formatting, no ```json blocks, just the raw JSON array
 """,
@@ -637,17 +694,26 @@ def fill_unknown_fields_with_responses(browser_page, unknown_fields):
 
                     # Check if this field has dropdown options (from extraction phase)
                     if "dropdown_options" in field:
-                        # This is a dropdown - click and select exact match
-                        locator.click(timeout=3000)
-                        time.sleep(0.5)
-
+                        # This is a dropdown - use keyboard typing like country/city (most reliable for React Select)
                         try:
-                            # Click the exact option text
-                            browser_page.get_by_text(response, exact=True).first.click(
-                                timeout=2000
-                            )
-                            print(f"✓ Filled {field_id} with: {response}")
-                            filled_count += 1
+                            locator.click(timeout=3000)
+                            time.sleep(0.8)  # Wait for React Select to render
+
+                            # Type the value to trigger React's onChange
+                            browser_page.keyboard.type(response)
+                            time.sleep(0.5)  # Let autocomplete filter
+
+                            # Try to click the exact match option
+                            try:
+                                browser_page.get_by_text(response, exact=True).first.click(timeout=2000)
+                                print(f"✓ Filled {field_id} with: {response}")
+                                filled_count += 1
+                            except:
+                                # If exact match click fails, just press Enter
+                                browser_page.keyboard.press("Enter")
+                                time.sleep(0.3)
+                                print(f"✓ Filled {field_id} with: {response} (keyboard)")
+                                filled_count += 1
                         except Exception as e:
                             print(
                                 f"⚠️ Could not select '{response}' from dropdown {field_id}: {e}"
@@ -710,8 +776,8 @@ if __name__ == "__main__":
     #     "url": "https://job-boards.greenhouse.io/crunchyroll/jobs/6696781",
     # }
     test_job = {
-        "title": "Autonomy Systems Software Engineer",
-        "company": "Kodiak",
-        "url": "https://job-boards.greenhouse.io/kodiak/jobs/4204664009",
+        "title": "Software Development Engineer, C++",
+        "company": "Network Optix",
+        "url": "https://job-boards.greenhouse.io/networkoptix/jobs/5101541007",
     }
     apply_to_single_job(test_job)

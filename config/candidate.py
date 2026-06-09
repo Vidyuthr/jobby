@@ -15,6 +15,7 @@ CANDIDATE_EMAIL = "vidyuth.ramkumar@gmail.com"
 CANDIDATE_PHONE_NUMBER = os.getenv("CANDIDATE_PHONE_NUMBER")
 CANDIDATE_RESUME_FILE_PATH = os.getenv("RESUME_FILE_PATH")
 CANDIDATE_LINKEDIN = "https://www.linkedin.com/in/vidyuth-ramkumar/"
+CANDIDATE_GITHUB = "https://github.com/Vidyuthr"
 
 # Detailed Profile Information
 OVERALL_CANDIDATE_PROFILE = "- Name: Vidyuth Subbiah Ramkumar - Education: BS Computer Science + Business Administration, Northeastern University Honors Program, May 2026. Dean's List. - Experience level: roughly 2 years, targeting strong new grad / junior roles - Target roles: Vidyuth is looking for full-time permanent roles or internships only, not research fellowships or contractor positions. AI/ML Engineer, Software Engineer, Product roles, at AI startups. If not, moderately relevant roles are fine too. - Open to: all roles in USA. Vidyuth is open to relocation within the USA - Work authorization: Vidyuth has work authorization as he is a permanent resident of the USA and he does NOT require any visa sponsorship."
@@ -61,6 +62,7 @@ def get_candidate_info_for_llm():
 - Name: {CANDIDATE_FIRST_NAME} {CANDIDATE_LAST_NAME}
 - Email: {CANDIDATE_EMAIL}
 - LinkedIn: {CANDIDATE_LINKEDIN}
+- GitHub: {CANDIDATE_GITHUB}
 
 ## Education
 {education_section}
@@ -95,6 +97,7 @@ def get_candidate_profile_dict():
         "email": CANDIDATE_EMAIL,
         "phone": CANDIDATE_PHONE_NUMBER,
         "linkedin": CANDIDATE_LINKEDIN,
+        "github": CANDIDATE_GITHUB,
         "resume_path": CANDIDATE_RESUME_FILE_PATH,
         "education": CANDIDATE_EDUCATION,
         "overall_profile": OVERALL_CANDIDATE_PROFILE,
