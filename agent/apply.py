@@ -748,11 +748,87 @@ def handle_unknown_fields_workflow(
         print(f"  {has_response} {field_name}")
 
 
+def check_required_fields_filled(browser_page):
+    """
+    Checks if all required fields (marked with *) are filled.
+    Returns: (all_filled: bool, unfilled_fields: list)
+    """
+    unfilled_required_fields = []
+
+    try:
+        # Find all required field labels (containing *)
+        # Common patterns: "Field Name*", "Field Name *"
+        all_inputs = browser_page.locator('input:not([type="hidden"]):not([type="submit"]):not([type="button"]), select, textarea').all()
+
+        for input_elem in all_inputs:
+            try:
+                # Check if field is required
+                is_required = input_elem.get_attribute("required") is not None
+                aria_required = input_elem.get_attribute("aria-required") == "true"
+
+                if is_required or aria_required:
+                    # Check if field is filled
+                    input_type = input_elem.get_attribute("type") or "text"
+                    field_id = input_elem.get_attribute("id") or "unknown"
+
+                    if input_type == "checkbox":
+                        if not input_elem.is_checked(timeout=500):
+                            # Get label text
+                            try:
+                                label = browser_page.locator(f'label[for="{field_id}"]').first
+                                label_text = label.text_content(timeout=1000).strip()
+                                unfilled_required_fields.append(label_text or field_id)
+                            except:
+                                unfilled_required_fields.append(field_id)
+                    else:
+                        value = input_elem.input_value(timeout=500)
+                        if not value or value.strip() == "":
+                            # Get field label
+                            try:
+                                # Try aria-labelledby
+                                aria_label_id = input_elem.get_attribute("aria-labelledby")
+                                if aria_label_id:
+                                    label_elem = browser_page.locator(f'[id="{aria_label_id}"]').first
+                                    label_text = label_elem.text_content(timeout=1000).strip()
+                                    unfilled_required_fields.append(label_text or field_id)
+                                else:
+                                    # Try label[for]
+                                    label = browser_page.locator(f'label[for="{field_id}"]').first
+                                    label_text = label.text_content(timeout=1000).strip()
+                                    unfilled_required_fields.append(label_text or field_id)
+                            except:
+                                unfilled_required_fields.append(field_id)
+            except:
+                continue
+
+    except Exception as e:
+        print(f"  ⚠️ Error checking required fields: {e}")
+        return True, []  # Assume filled if we can't check
+
+    return len(unfilled_required_fields) == 0, unfilled_required_fields
+
+
 def submit_application(browser_page):
     """
     Submits the application and checks for confirmation.
+    Returns: (success: bool, message: str)
     """
-    print("\n🚀 Submitting application...")
+    print("\n🚀 Preparing to submit application...")
+
+    # First, check if all required fields are filled
+    all_filled, unfilled_fields = check_required_fields_filled(browser_page)
+
+    if not all_filled:
+        print(f"\n❌ SKIPPING SUBMISSION - {len(unfilled_fields)} required field(s) not filled:")
+        for field in unfilled_fields[:10]:  # Show first 10
+            print(f"  • {field}")
+        if len(unfilled_fields) > 10:
+            print(f"  ... and {len(unfilled_fields) - 10} more")
+        print("\n⚠️ This job application cannot be fully automated. Skipping.")
+        return False, "Required fields unfilled"
+
+    print("✓ All required fields are filled")
+
     try:
         # Try different common submit button patterns
         submit_clicked = False
@@ -776,6 +852,7 @@ def submit_application(browser_page):
 
         if not submit_clicked:
             print("❌ Could not find submit button - please submit manually")
+            return False, "Submit button not found"
         else:
             # Wait for navigation after clicking submit
             time.sleep(2)  # Give it a moment to start navigating
@@ -807,12 +884,15 @@ def submit_application(browser_page):
 
             if any(success_indicators):
                 print("\n🎉 🎊 🕺 SUCCESSFULLY SUBMITTED APPLICATION 🎉 🎊 🕺")
+                return True, "Success"
             else:
                 print(f"\n⚠️ Could not confirm submission - please verify on the page")
+                return False, "Could not confirm"
 
     except Exception as e:
         print(f"❌ Error during submission: {e}")
         print("Please review the form and submit manually if needed")
+        return False, str(e)
 
 
 def apply_to_single_job(job):
@@ -849,12 +929,20 @@ def apply_to_single_job(job):
         fill_employment_section(browser_page)
 
         # Submit the application
-        submit_application(browser_page)
+        success, message = submit_application(browser_page)
 
         # Final summary
         print(f"\nFinal URL: {browser_page.url}")
+        if success:
+            print(f"✅ Application status: Submitted successfully")
+        else:
+            print(f"⚠️ Application status: Skipped - {message}")
+            print(f"   Reason: Form has required fields that couldn't be automated")
+
         input("Press Enter to close browser...")
         browser_page.wait_for_load_state("networkidle")
+
+        return success
 
 
 def is_eeo_field(field):

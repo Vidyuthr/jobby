@@ -10,7 +10,14 @@ def test_apply_to_single_job(job):
     """Test applying to a single job."""
     print(f"\n🧪 Testing application to {job['company']} - {job['title']}")
     print(f"URL: {job['url']}\n")
-    apply_to_single_job(job)
+    success = apply_to_single_job(job)
+
+    print(f"\n{'='*60}")
+    if success:
+        print(f"✅ TEST RESULT: Application submitted successfully!")
+    else:
+        print(f"⚠️ TEST RESULT: Application skipped (form not fully automatable)")
+    print(f"{'='*60}\n")
 
 
 if __name__ == "__main__":
