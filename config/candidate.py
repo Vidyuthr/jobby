@@ -17,6 +17,12 @@ CANDIDATE_RESUME_FILE_PATH = os.getenv("RESUME_FILE_PATH")
 CANDIDATE_LINKEDIN = "https://www.linkedin.com/in/vidyuth-ramkumar/"
 CANDIDATE_GITHUB = "https://github.com/Vidyuthr"
 
+# Location Information (from .env to keep private)
+CANDIDATE_CITY = os.getenv("CANDIDATE_CITY")
+CANDIDATE_STATE = os.getenv("CANDIDATE_STATE")
+CANDIDATE_STATE_ABBR = os.getenv("CANDIDATE_STATE_ABBR")
+CANDIDATE_POSTAL_CODE = os.getenv("CANDIDATE_POSTAL_CODE")
+
 # Detailed Profile Information
 OVERALL_CANDIDATE_PROFILE = "- Name: Vidyuth Subbiah Ramkumar - Education: BS Computer Science + Business Administration, Northeastern University Honors Program, May 2026. Dean's List. - Experience level: roughly 2 years, targeting strong new grad / junior roles - Target roles: Vidyuth is looking for full-time permanent roles or internships only, not research fellowships or contractor positions. AI/ML Engineer, Software Engineer, Product roles, at AI startups. If not, moderately relevant roles are fine too. - Open to: all roles in USA. Vidyuth is open to relocation within the USA - Work authorization: Vidyuth has work authorization as he is a permanent resident of the USA and he does NOT require any visa sponsorship."
 

@@ -14,6 +14,10 @@ from config.candidate import (
     CANDIDATE_RESUME_FILE_PATH,
     CANDIDATE_LINKEDIN,
     CANDIDATE_GITHUB,
+    CANDIDATE_CITY,
+    CANDIDATE_STATE,
+    CANDIDATE_STATE_ABBR,
+    CANDIDATE_POSTAL_CODE,
     get_candidate_info_for_llm,
 )
 
@@ -41,6 +45,15 @@ POSSIBLE_FORM_FIELDS = {
     "state": [
         "State",
         "state",
+        "State/Province",
+    ],
+    "postal_code": [
+        "Postal Code",
+        "postal code",
+        "Zip Code",
+        "zip code",
+        "ZIP",
+        "Zip",
     ],
     "country": ["Country", "Country*", "country", "Country Code"],
     "linkedin": [
@@ -51,6 +64,9 @@ POSSIBLE_FORM_FIELDS = {
         "Linkedin URL",
     ],
     "resume": ["Resume/CV", "Resume/CV*", "Resume", "CV", "Upload Resume", "resume"],
+    "school": ["School", "school", "University", "university", "College", "college"],
+    "degree": ["Degree", "degree", "Degree Level"],
+    "discipline": ["Discipline", "discipline", "Major", "major", "Field of Study", "field of study"],
     "authorized_to_work": [],
 }
 
@@ -62,10 +78,10 @@ FIELD_KEYS_TO_ENTRIES = {
     "linkedin": CANDIDATE_LINKEDIN,
     "resume": CANDIDATE_RESUME_FILE_PATH,
     "city": [
-        "Phoenix, Arizona, United States",
-        "Phoenix, Arizona",
-        "Phoenix, AZ",
-        "Phoenix",
+        f"{CANDIDATE_CITY}, {CANDIDATE_STATE}, United States",
+        f"{CANDIDATE_CITY}, {CANDIDATE_STATE}",
+        f"{CANDIDATE_CITY}, {CANDIDATE_STATE_ABBR}",
+        CANDIDATE_CITY,
     ],
     "country": [
         "United States of America",
@@ -91,7 +107,29 @@ FIELD_KEYS_TO_ENTRIES = {
         "USA +1",
         "US +1",
     ],
-    "state": "AZ",
+    "state": [
+        CANDIDATE_STATE,
+        CANDIDATE_STATE_ABBR,
+    ],
+    "postal_code": CANDIDATE_POSTAL_CODE,
+    "school": [
+        "Northeastern University",
+        "northeastern university",
+        "Northeastern",
+    ],
+    "degree": [
+        "Bachelor's Degree",
+        "Bachelor's",
+        "Bachelors",
+        "Bachelor of Science",
+        "BS",
+        "B.S.",
+    ],
+    "discipline": [
+        "Computer Science",
+        "computer science",
+        "CS",
+    ],
 }
 
 
@@ -295,7 +333,7 @@ def extract_dropdown_options(browser_page, ejf_locator):
         return []
 
 
-def autofill_misc_unknown_questions(questions, company_name):
+def autofill_misc_unknown_questions(questions, company_name, job_title=""):
     autofilled_count = 0
     for q in questions:
         if q["Field Aria"]:
@@ -347,6 +385,24 @@ def autofill_misc_unknown_questions(questions, company_name):
                 q["Response"] = CANDIDATE_GITHUB
                 autofilled_count += 1
                 print(f"  ✓ Auto-filled GitHub: {q['Field Aria']}")
+            # Salary expectations - handle via LLM with job title context
+            if ("salary" in aria_lower or "compensation" in aria_lower) and ("expectation" in aria_lower or "desired" in aria_lower or "requirement" in aria_lower):
+                # Mark this field to be handled by LLM with special context
+                q["needs_salary_context"] = True
+            # Current city question variants
+            if "city" in aria_lower and ("currently" in aria_lower or "current" in aria_lower or "live" in aria_lower or "reside" in aria_lower):
+                q["Response"] = CANDIDATE_CITY
+                autofilled_count += 1
+                print(f"  ✓ Auto-filled current city: {q['Field Aria']}")
+            # Current state question variants
+            if "state" in aria_lower and ("currently" in aria_lower or "current" in aria_lower or "live" in aria_lower or "reside" in aria_lower):
+                # Check if it's a dropdown with state abbreviations
+                if "dropdown_options" in q and len(q["dropdown_options"]) > 20:  # Likely state dropdown
+                    q["Response"] = CANDIDATE_STATE_ABBR
+                else:
+                    q["Response"] = CANDIDATE_STATE
+                autofilled_count += 1
+                print(f"  ✓ Auto-filled current state: {q['Field Aria']}")
 
     print(f"\n✓ Auto-filled {autofilled_count} fields")
     return questions
@@ -457,7 +513,7 @@ def process_form_fields(browser_page, fields_locator_filter):
     return unknown_fields, filled_fields
 
 
-def handle_unknown_fields_workflow(browser_page, unknown_fields, company_name):
+def handle_unknown_fields_workflow(browser_page, unknown_fields, company_name, job_title=""):
     """
     Handles the complete workflow for unknown fields:
     1. Autofill common questions
@@ -469,12 +525,12 @@ def handle_unknown_fields_workflow(browser_page, unknown_fields, company_name):
         return
 
     # First, autofill common questions
-    unknown_fields = autofill_misc_unknown_questions(unknown_fields, company_name)
+    unknown_fields = autofill_misc_unknown_questions(unknown_fields, company_name, job_title)
     print(f"\nunknown fields after autofill: {len(unknown_fields)} fields")
 
     # Then, use LLM to fill remaining fields
     print("\n🤖 Getting LLM responses for unknown fields...")
-    unknown_fields = get_adaptive_responses(unknown_fields)
+    unknown_fields = get_adaptive_responses(unknown_fields, job_title)
 
     # Finally, fill the fields with the responses
     print("\n📝 Filling unknown fields with responses...")
@@ -577,7 +633,8 @@ def apply_to_single_job(job):
         )
 
         # Handle unknown fields (autofill, LLM, fill)
-        handle_unknown_fields_workflow(browser_page, unknown_fields, job["company"])
+        job_title = job.get("title", "")
+        handle_unknown_fields_workflow(browser_page, unknown_fields, job["company"], job_title)
 
         # Submit the application
         submit_application(browser_page)
@@ -588,7 +645,50 @@ def apply_to_single_job(job):
         browser_page.wait_for_load_state("networkidle")
 
 
-def get_adaptive_responses(questions):
+def is_eeo_field(field):
+    """
+    Determines if a field is a voluntary EEO disclosure field.
+    These fields should not be sent to the LLM.
+    """
+    if not field.get("Field Aria"):
+        return False
+
+    aria_lower = field["Field Aria"].lower()
+
+    # EEO field patterns
+    eeo_patterns = [
+        "gender",
+        "race",
+        "ethnicity",
+        "hispanic",
+        "latino",
+        "veteran",
+        "disability",
+        "sexual orientation",
+        "transgender",
+        "lgbtq",
+    ]
+
+    return any(pattern in aria_lower for pattern in eeo_patterns)
+
+
+def is_sensitive_address_field(field):
+    """
+    Determines if a field is asking for street/home address (too sensitive to auto-fill).
+    """
+    if not field.get("Field Aria"):
+        return False
+
+    aria_lower = field["Field Aria"].lower()
+
+    # Don't auto-fill street addresses
+    if "address" in aria_lower and ("street" in aria_lower or "residence" in aria_lower or "home" in aria_lower or "permanent" in aria_lower):
+        return True
+
+    return False
+
+
+def get_adaptive_responses(questions, job_title=""):
     """
     Uses Groq LLM to generate responses for unknown fields that don't have pre-filled responses.
     Returns the questions list with Response fields added.
@@ -596,16 +696,32 @@ def get_adaptive_responses(questions):
     # Filter out questions that already have responses
     questions_needing_responses = [q for q in questions if "Response" not in q]
 
-    if not questions_needing_responses:
-        print("  ℹ️  All questions already have responses from autofill")
+    # Filter out EEO and sensitive address fields from LLM processing
+    eeo_fields = [q for q in questions_needing_responses if is_eeo_field(q)]
+    address_fields = [q for q in questions_needing_responses if is_sensitive_address_field(q) and not is_eeo_field(q)]
+    questions_for_llm = [q for q in questions_needing_responses if not is_eeo_field(q) and not is_sensitive_address_field(q)]
+
+    if eeo_fields:
+        print(f"  ⏭️  Skipping {len(eeo_fields)} EEO disclosure fields (will not fill)")
+    if address_fields:
+        print(f"  ⏭️  Skipping {len(address_fields)} street address fields (will not fill)")
+
+    if not questions_for_llm:
+        print("  ℹ️  All non-EEO questions already have responses from autofill")
         return questions
 
-    print(f"  📤 Sending {len(questions_needing_responses)} questions to LLM")
+    print(f"  📤 Sending {len(questions_for_llm)} questions to LLM")
 
     llm_candidate_context = get_candidate_info_for_llm()
 
-    # Format questions for LLM
-    questions_json = json.dumps(questions_needing_responses, indent=2)
+    # Check if any questions need salary context
+    has_salary_field = any(q.get("needs_salary_context", False) for q in questions_for_llm)
+    salary_instruction = ""
+    if has_salary_field and job_title:
+        salary_instruction = f"\n\n# Salary Expectations:\n- Job title: {job_title}\n- Research typical market rate for this role for a new graduate with 2 years experience\n- Provide a reasonable salary expectation (annual, in USD)\n- If the job description mentions a salary range, aim for the middle of that range\n- Format as a number (e.g., '120000' for $120k)"
+
+    # Format questions for LLM (only non-EEO questions)
+    questions_json = json.dumps(questions_for_llm, indent=2)
 
     chat_completion = client.chat.completions.create(
         messages=[
@@ -613,14 +729,14 @@ def get_adaptive_responses(questions):
                 "role": "system",
                 "content": f"""You are filling out a job application form on behalf of Vidyuth Subbiah Ramkumar, a new graduate software/ML engineer.
 
-{llm_candidate_context}
+{llm_candidate_context}{salary_instruction}
 
 # Instructions:
-- Add a "Response" field to EVERY question EXCEPT voluntary EEO disclosure fields
-- EEO fields to skip: gender identity, race/ethnicity, sexual orientation, transgender, disability, veteran status
+- Add a "Response" field to EVERY question provided
 - For questions with "dropdown_options", you MUST select EXACTLY one option from that list (copy it exactly, including capitalization)
 - If candidate lacks experience for a question (like "Where have you worked in X?"), respond with "N/A" or "No direct experience" - DO NOT skip it
 - Answer ALL questions about skills, preferences, relocation, websites, LinkedIn/GitHub URLs, etc.
+- For salary questions, provide a realistic market-rate number based on the job title and candidate's experience level
 - Keep responses concise and professional
 - Return ONLY valid JSON array with no markdown formatting, no ```json blocks, just the raw JSON array
 """,
@@ -649,9 +765,9 @@ def get_adaptive_responses(questions):
 
         responded_questions = json.loads(response_content)
 
-        # Merge responses back into original questions list
+        # Merge responses back into original questions list (only for non-EEO fields)
         for original_q in questions:
-            if "Response" not in original_q:
+            if "Response" not in original_q and not is_eeo_field(original_q):
                 # Find matching question in LLM response
                 for responded_q in responded_questions:
                     if responded_q.get("Field ID") == original_q.get("Field ID"):
