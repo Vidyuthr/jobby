@@ -2,6 +2,7 @@
 import json
 import time
 import os
+import re
 from playwright.sync_api import sync_playwright
 
 from groq import Groq
@@ -18,6 +19,8 @@ from config.candidate import (
     CANDIDATE_STATE,
     CANDIDATE_STATE_ABBR,
     CANDIDATE_POSTAL_CODE,
+    CANDIDATE_WORK_HISTORY,
+    CANDIDATE_EDUCATION,
     get_candidate_info_for_llm,
 )
 
@@ -66,7 +69,15 @@ POSSIBLE_FORM_FIELDS = {
     "resume": ["Resume/CV", "Resume/CV*", "Resume", "CV", "Upload Resume", "resume"],
     "school": ["School", "school", "University", "university", "College", "college"],
     "degree": ["Degree", "degree", "Degree Level"],
-    "discipline": ["Discipline", "discipline", "Major", "major", "Field of Study", "field of study"],
+    "discipline": [
+        "Discipline",
+        "discipline",
+        "Major",
+        "major",
+        "Field of Study",
+        "field of study",
+    ],
+    "gpa": ["GPA", "gpa", "Grade Point Average", "grade point average"],
     "authorized_to_work": [],
 }
 
@@ -130,6 +141,7 @@ FIELD_KEYS_TO_ENTRIES = {
         "computer science",
         "CS",
     ],
+    "gpa": CANDIDATE_EDUCATION["gpa"],
 }
 
 
@@ -251,6 +263,34 @@ def better_fill_field(browser_page, field_locator, field_id, field_aria):
                 except Exception as e:
                     print(f"❌ Could not fill CITY field; exception {e}")
                 return True
+            elif possible_field == "school":
+                try:
+                    print(
+                        f"Interacting with SCHOOL field. field_id: {field_id}, possible_field from field variation map: {possible_field}"
+                    )
+                    # Try dropdown approach first (type + select)
+                    try:
+                        field_locator.click(timeout=2000)
+                        time.sleep(0.3)
+                        browser_page.keyboard.type("Northeastern University")
+                        time.sleep(0.5)
+                        # Try to click exact match
+                        try:
+                            browser_page.get_by_text(
+                                "Northeastern University", exact=True
+                            ).first.click(timeout=2000)
+                            print("✓ Filled school (dropdown)")
+                        except:
+                            # If no exact match, just press Enter
+                            browser_page.keyboard.press("Enter")
+                            print("✓ Filled school (dropdown with Enter)")
+                    except:
+                        # Fallback: just type into text field if not a dropdown
+                        field_locator.fill("Northeastern University")
+                        print("✓ Filled school (text input)")
+                except Exception as e:
+                    print(f"❌ Could not fill SCHOOL field; exception {e}")
+                return True
             else:
                 try:
                     print(
@@ -300,6 +340,26 @@ def extract_field_metadata(ejf_locator, browser_page):
             field_aria = field_aria_raw
     else:
         field_aria = field_aria_raw
+
+    # If no ARIA label, try to find label via parent structure (for checkboxes)
+    if not field_aria and field_tag_name == "input":
+        input_type = ejf_locator.get_attribute("type") or ""
+        if input_type == "checkbox":
+            # Try to find associated label or parent text
+            try:
+                # Check for label with for attribute matching this field's ID
+                label = browser_page.locator(f'label[for="{field_id}"]').first
+                field_aria = label.text_content(timeout=1000).strip()
+            except:
+                # Try to find parent fieldset legend or preceding label
+                try:
+                    parent_legend = ejf_locator.evaluate(
+                        "el => el.closest('fieldset')?.querySelector('legend')?.textContent"
+                    )
+                    if parent_legend:
+                        field_aria = parent_legend.strip()
+                except:
+                    pass
 
     return field_tag_name, field_id, field_aria
 
@@ -354,7 +414,9 @@ def autofill_misc_unknown_questions(questions, company_name, job_title=""):
                 q["Response"] = "No"
                 autofilled_count += 1
                 print(f"  ✓ Auto-filled immigration: {q['Field Aria']}")
-            if "authorized" in aria_lower and ("work" in aria_lower or "employment" in aria_lower):
+            if "authorized" in aria_lower and (
+                "work" in aria_lower or "employment" in aria_lower
+            ):
                 q["Response"] = "Yes"
                 autofilled_count += 1
                 print(f"  ✓ Auto-filled work authorization: {q['Field Aria']}")
@@ -380,29 +442,124 @@ def autofill_misc_unknown_questions(questions, company_name, job_title=""):
                 print(f"  ✓ Auto-filled LinkedIn: {q['Field Aria']}")
             # GitHub URL autofill
             if "github" in aria_lower and (
-                "profile" in aria_lower or "url" in aria_lower or "link" in aria_lower or "page" in aria_lower or "account" in aria_lower
+                "profile" in aria_lower
+                or "url" in aria_lower
+                or "link" in aria_lower
+                or "page" in aria_lower
+                or "account" in aria_lower
             ):
                 q["Response"] = CANDIDATE_GITHUB
                 autofilled_count += 1
                 print(f"  ✓ Auto-filled GitHub: {q['Field Aria']}")
             # Salary expectations - handle via LLM with job title context
-            if ("salary" in aria_lower or "compensation" in aria_lower) and ("expectation" in aria_lower or "desired" in aria_lower or "requirement" in aria_lower):
+            if ("salary" in aria_lower or "compensation" in aria_lower) and (
+                "expectation" in aria_lower
+                or "desired" in aria_lower
+                or "requirement" in aria_lower
+            ):
                 # Mark this field to be handled by LLM with special context
                 q["needs_salary_context"] = True
             # Current city question variants
-            if "city" in aria_lower and ("currently" in aria_lower or "current" in aria_lower or "live" in aria_lower or "reside" in aria_lower):
+            if "city" in aria_lower and (
+                "currently" in aria_lower
+                or "current" in aria_lower
+                or "live" in aria_lower
+                or "reside" in aria_lower
+            ):
                 q["Response"] = CANDIDATE_CITY
                 autofilled_count += 1
                 print(f"  ✓ Auto-filled current city: {q['Field Aria']}")
             # Current state question variants
-            if "state" in aria_lower and ("currently" in aria_lower or "current" in aria_lower or "live" in aria_lower or "reside" in aria_lower):
+            if "state" in aria_lower and (
+                "currently" in aria_lower
+                or "current" in aria_lower
+                or "live" in aria_lower
+                or "reside" in aria_lower
+            ):
                 # Check if it's a dropdown with state abbreviations
-                if "dropdown_options" in q and len(q["dropdown_options"]) > 20:  # Likely state dropdown
+                if (
+                    "dropdown_options" in q and len(q["dropdown_options"]) > 20
+                ):  # Likely state dropdown
                     q["Response"] = CANDIDATE_STATE_ABBR
                 else:
                     q["Response"] = CANDIDATE_STATE
                 autofilled_count += 1
                 print(f"  ✓ Auto-filled current state: {q['Field Aria']}")
+            # Willing to relocate
+            if (
+                "willing" in aria_lower or "able" in aria_lower or "open" in aria_lower
+            ) and "relocat" in aria_lower:
+                q["Response"] = "Yes"
+                autofilled_count += 1
+                print(f"  ✓ Auto-filled willing to relocate: {q['Field Aria']}")
+            # Committed to in-person/office work
+            if (
+                "committed" in aria_lower
+                or "willing" in aria_lower
+                or "able" in aria_lower
+            ) and (
+                "in person" in aria_lower
+                or "in-person" in aria_lower
+                or "office" in aria_lower
+                or "on-site" in aria_lower
+                or "onsite" in aria_lower
+            ):
+                q["Response"] = "Yes"
+                autofilled_count += 1
+                print(f"  ✓ Auto-filled committed to in-person work: {q['Field Aria']}")
+            # Policy/agreement checkboxes
+            if q.get("field_type") == "checkbox" or (
+                q.get("Field Tag") == "input"
+                and "checkbox" in str(q.get("field_type", "")).lower()
+            ):
+                # Auto-check policy/agreement checkboxes
+                if any(
+                    keyword in aria_lower
+                    for keyword in [
+                        "policy",
+                        "agree",
+                        "understand",
+                        "acknowledge",
+                        "terms",
+                        "consent",
+                        "privacy notice",
+                        "read and understand",
+                    ]
+                ):
+                    q["Response"] = "checked"
+                    autofilled_count += 1
+                    print(f"  ✓ Auto-checked checkbox: {q['Field Aria']}")
+
+            # Salary expectations checkboxes (multi-select)
+            if "salary" in aria_lower and "expectation" in aria_lower:
+                # For new grad SWE roles, select $80k-$99k and $100k+ ranges
+                field_id = q.get("Field ID", "")
+                # Check if this is one of the higher salary range checkboxes
+                # We want to check the $80k-$89k, $90k-$99k, and $100k+ options
+                # These are typically the last 3 checkboxes in the salary list
+                # Mark this as needing special salary handling
+                q["needs_salary_checkbox"] = True
+
+            # GPA range dropdowns
+            if "gpa" in aria_lower and "dropdown_options" in q:
+                gpa_value = float(CANDIDATE_EDUCATION["gpa"])
+                options = q["dropdown_options"]
+
+                # Try to find the right range
+                for option in options:
+                    option_lower = option.lower()
+                    # Match patterns like "3.2 - 3.49" or "3.20-3.49" or "3.2-3.49"
+                    range_match = re.search(r"(\d+\.?\d*)\s*-\s*(\d+\.?\d*)", option)
+                    if range_match:
+                        range_min = float(range_match.group(1))
+                        range_max = float(range_match.group(2))
+                        if range_min <= gpa_value <= range_max:
+                            q["Response"] = option
+                            autofilled_count += 1
+                            print(
+                                f"  ✓ Auto-filled GPA range: {q['Field Aria']} = {option}"
+                            )
+                            break
 
     print(f"\n✓ Auto-filled {autofilled_count} fields")
     return questions
@@ -453,6 +610,7 @@ def process_form_fields(browser_page, fields_locator_filter):
                 "password",
                 "tel",
                 "number",
+                "checkbox",
             ]:
                 was_filled = better_fill_field(
                     browser_page, ejf_locator, field_id, field_aria
@@ -513,7 +671,47 @@ def process_form_fields(browser_page, fields_locator_filter):
     return unknown_fields, filled_fields
 
 
-def handle_unknown_fields_workflow(browser_page, unknown_fields, company_name, job_title=""):
+def handle_checkbox_groups(browser_page, job_title=""):
+    """
+    Handles special checkbox groups that don't have individual ARIA labels:
+    1. Salary expectations (multi-select checkboxes)
+    2. Privacy notice agreements
+    """
+    # Handle salary expectation checkboxes
+    try:
+        # Find all checkboxes with IDs matching the salary pattern (question_*[]_*)
+        salary_checkboxes = browser_page.locator('input[type="checkbox"][id*="question"][id*="[]"]').all()
+
+        for checkbox in salary_checkboxes:
+            try:
+                # Get the associated label
+                checkbox_id = checkbox.get_attribute("id")
+                label = browser_page.locator(f'label[for="{checkbox_id}"]').first
+                label_text = label.text_content(timeout=1000).strip()
+
+                # Check if this is a salary checkbox
+                if "$" in label_text and any(keyword in label_text.lower() for keyword in ["salary", "expect", "compens"]):
+                    # For new grad SWE: select $80k-$89k, $90k-$99k, and $100k+
+                    should_check = any(range_text in label_text for range_text in ["$80,000", "$90,000", "$100,000+"])
+
+                    if should_check and not checkbox.is_checked(timeout=1000):
+                        checkbox.click(timeout=2000)
+                        print(f"  ✓ Checked salary range: {label_text}")
+
+                # Check if this is a privacy notice checkbox
+                elif any(keyword in label_text.lower() for keyword in ["privacy notice", "read and understand", "job applicant privacy"]):
+                    if not checkbox.is_checked(timeout=1000):
+                        checkbox.click(timeout=2000)
+                        print(f"  ✓ Checked privacy notice: {label_text}")
+            except:
+                continue
+    except Exception as e:
+        print(f"  ⚠️ Could not process checkbox groups: {e}")
+
+
+def handle_unknown_fields_workflow(
+    browser_page, unknown_fields, company_name, job_title=""
+):
     """
     Handles the complete workflow for unknown fields:
     1. Autofill common questions
@@ -525,16 +723,22 @@ def handle_unknown_fields_workflow(browser_page, unknown_fields, company_name, j
         return
 
     # First, autofill common questions
-    unknown_fields = autofill_misc_unknown_questions(unknown_fields, company_name, job_title)
+    unknown_fields = autofill_misc_unknown_questions(
+        unknown_fields, company_name, job_title
+    )
     print(f"\nunknown fields after autofill: {len(unknown_fields)} fields")
 
     # Then, use LLM to fill remaining fields
     print("\n🤖 Getting LLM responses for unknown fields...")
     unknown_fields = get_adaptive_responses(unknown_fields, job_title)
 
-    # Finally, fill the fields with the responses
+    # Fill the fields with the responses
     print("\n📝 Filling unknown fields with responses...")
     fill_unknown_fields_with_responses(browser_page, unknown_fields)
+
+    # Handle special checkbox groups (salary expectations, privacy notices)
+    print("\n📋 Handling checkbox groups...")
+    handle_checkbox_groups(browser_page, job_title)
 
     # Show final unknown fields status
     print(f"\n📋 Final unknown fields summary:")
@@ -634,7 +838,15 @@ def apply_to_single_job(job):
 
         # Handle unknown fields (autofill, LLM, fill)
         job_title = job.get("title", "")
-        handle_unknown_fields_workflow(browser_page, unknown_fields, job["company"], job_title)
+        handle_unknown_fields_workflow(
+            browser_page, unknown_fields, job["company"], job_title
+        )
+
+        # Fill education section
+        fill_education_section(browser_page)
+
+        # Fill employment history section
+        fill_employment_section(browser_page)
 
         # Submit the application
         submit_application(browser_page)
@@ -682,10 +894,349 @@ def is_sensitive_address_field(field):
     aria_lower = field["Field Aria"].lower()
 
     # Don't auto-fill street addresses
-    if "address" in aria_lower and ("street" in aria_lower or "residence" in aria_lower or "home" in aria_lower or "permanent" in aria_lower):
+    if "address" in aria_lower and (
+        "street" in aria_lower
+        or "residence" in aria_lower
+        or "home" in aria_lower
+        or "permanent" in aria_lower
+    ):
         return True
 
     return False
+
+
+def is_education_field(field):
+    """
+    Determines if a field is part of the education section.
+    These fields follow patterns like: degree--0, discipline--0, start-month--0, etc.
+    Note the double dash (--) pattern for education vs single dash (-) for employment.
+    """
+    field_id = field.get("Field ID", "")
+    field_aria = field.get("Field Aria")
+
+    # Check ID patterns for education fields (note the double dash --)
+    education_id_patterns = [
+        "degree--",
+        "discipline--",
+        "major--",
+        "school--",
+        "university--",
+        "start-month--",
+        "start-year--",
+        "end-month--",
+        "end-year--",
+    ]
+
+    if any(pattern in field_id for pattern in education_id_patterns):
+        return True
+
+    # Also check ARIA labels for education-specific terms
+    if field_aria:
+        aria_lower = field_aria.lower()
+        # Education section has degree/discipline in ARIA with -- pattern in ID
+        if "--" in field_id and any(
+            term in aria_lower
+            for term in ["degree", "discipline", "major", "school", "university"]
+        ):
+            return True
+        # Start/end date with -- pattern is likely education
+        if "--" in field_id and (
+            "start date" in aria_lower or "end date" in aria_lower
+        ):
+            return True
+
+    return False
+
+
+def is_employment_field(field):
+    """
+    Determines if a field is part of the employment history section.
+    These fields follow patterns like: title-0, company-0, start-date-month-0, etc.
+    """
+    field_id = field.get("Field ID", "")
+    field_aria = field.get("Field Aria")
+
+    # Check ID patterns for employment fields
+    employment_id_patterns = [
+        "title-",
+        "company-",
+        "employer-",
+        "start-date-month-",
+        "start-date-year-",
+        "end-date-month-",
+        "end-date-year-",
+        "current-role-",
+    ]
+
+    if any(pattern in field_id for pattern in employment_id_patterns):
+        return True
+
+    # Also check ARIA labels
+    if field_aria:
+        aria_lower = field_aria.lower()
+        # Look for employment-specific patterns in ARIA
+        if "title" in aria_lower and (
+            "start date" in field_id or "end date" in field_id or "-0" in field_id
+        ):
+            return True
+        if ("start date" in aria_lower or "end date" in aria_lower) and (
+            "month" in aria_lower or "year" in aria_lower
+        ):
+            # But make sure it's not education dates
+            if "title-" in field_id or "company-" in field_id or "-0" in field_id:
+                return True
+
+    return False
+
+
+def fill_education_section(browser_page):
+    """
+    Fills the education section with data from CANDIDATE_EDUCATION.
+    Handles fields with double-dash pattern: degree--0, discipline--0, start-month--0, etc.
+    """
+    if not CANDIDATE_EDUCATION:
+        print("  ℹ️  No education data available, skipping education section")
+        return
+
+    print(f"\n🎓 Filling education section...")
+
+    # Map month names to their full form
+    month_map = {
+        "September": "September",
+        "May": "May",
+    }
+
+    try:
+        # Fill school name (if exists)
+        try:
+            school_field = browser_page.locator(
+                '[id*="school"][id*="--0"], [id="school--0"]'
+            ).first
+            school_field.click(timeout=2000)
+            time.sleep(0.3)
+            browser_page.keyboard.type(CANDIDATE_EDUCATION["school"])
+            time.sleep(0.5)
+            # Try to click exact match
+            try:
+                browser_page.get_by_text(
+                    CANDIDATE_EDUCATION["school"], exact=True
+                ).first.click(timeout=2000)
+            except:
+                browser_page.keyboard.press("Enter")
+            print(f"  ✓ School: {CANDIDATE_EDUCATION['school']}")
+        except:
+            # School field might not exist, that's okay
+            pass
+
+        # Fill degree
+        try:
+            degree_field = browser_page.locator('[id="degree--0"]').first
+            degree_field.click(timeout=2000)
+            time.sleep(0.5)
+            browser_page.keyboard.type("Bachelor")
+            time.sleep(0.5)
+            # Try to click exact match
+            try:
+                browser_page.get_by_text("Bachelor's Degree", exact=True).first.click(
+                    timeout=2000
+                )
+            except:
+                browser_page.keyboard.press("Enter")
+            print(f"  ✓ Degree: Bachelor's Degree")
+        except Exception as e:
+            print(f"  ⚠️ Could not fill degree: {e}")
+
+        # Fill discipline/major
+        try:
+            discipline_field = browser_page.locator('[id="discipline--0"]').first
+            discipline_field.click(timeout=2000)
+            time.sleep(0.5)
+            browser_page.keyboard.type("Computer Science")
+            time.sleep(0.5)
+            # Try to click exact match
+            try:
+                browser_page.get_by_text("Computer Science", exact=True).first.click(
+                    timeout=2000
+                )
+            except:
+                browser_page.keyboard.press("Enter")
+            print(f"  ✓ Discipline: Computer Science")
+        except Exception as e:
+            print(f"  ⚠️ Could not fill discipline: {e}")
+
+        # Fill start month
+        try:
+            start_month_field = browser_page.locator('[id="start-month--0"]').first
+            start_month_field.click(timeout=2000)
+            time.sleep(0.5)
+            browser_page.keyboard.type(CANDIDATE_EDUCATION["start_month"])
+            time.sleep(0.3)
+            browser_page.keyboard.press("Enter")
+            print(f"  ✓ Start month: {CANDIDATE_EDUCATION['start_month']}")
+        except Exception as e:
+            print(f"  ⚠️ Could not fill start month: {e}")
+
+        # Fill start year
+        try:
+            start_year_field = browser_page.locator('[id="start-year--0"]').first
+            start_year_field.fill(CANDIDATE_EDUCATION["start_year"], timeout=2000)
+            print(f"  ✓ Start year: {CANDIDATE_EDUCATION['start_year']}")
+        except Exception as e:
+            print(f"  ⚠️ Could not fill start year: {e}")
+
+        # Fill end month
+        try:
+            end_month_field = browser_page.locator('[id="end-month--0"]').first
+            end_month_field.click(timeout=2000)
+            time.sleep(0.5)
+            browser_page.keyboard.type(CANDIDATE_EDUCATION["end_month"])
+            time.sleep(0.3)
+            browser_page.keyboard.press("Enter")
+            print(f"  ✓ End month: {CANDIDATE_EDUCATION['end_month']}")
+        except Exception as e:
+            print(f"  ⚠️ Could not fill end month: {e}")
+
+        # Fill end year
+        try:
+            end_year_field = browser_page.locator('[id="end-year--0"]').first
+            end_year_field.fill(CANDIDATE_EDUCATION["end_year"], timeout=2000)
+            print(f"  ✓ End year: {CANDIDATE_EDUCATION['end_year']}")
+        except Exception as e:
+            print(f"  ⚠️ Could not fill end year: {e}")
+
+    except Exception as e:
+        print(f"  ❌ Error filling education section: {e}")
+
+    print(f"  ✓ Education section filled\n")
+
+
+def fill_employment_section(browser_page):
+    """
+    Fills the employment history section with data from CANDIDATE_WORK_HISTORY.
+    Handles multiple job entries by filling first job, then clicking "Add another" for subsequent jobs.
+    """
+    if not CANDIDATE_WORK_HISTORY:
+        print("  ℹ️  No work history data available, skipping employment section")
+        return
+
+    # Check if employment fields exist on this form (single dash pattern: company-0, title-0)
+    try:
+        browser_page.locator('[id="company-0"], [id="title-0"]').first.wait_for(
+            timeout=1000
+        )
+    except:
+        print("  ℹ️  No employment section found on this form, skipping")
+        return
+
+    print(f"\n💼 Filling employment section with {len(CANDIDATE_WORK_HISTORY)} jobs...")
+
+    for job_index, job in enumerate(CANDIDATE_WORK_HISTORY):
+        try:
+            print(
+                f"  📝 Filling job #{job_index + 1}: {job['company']} - {job['title']}"
+            )
+
+            # Fill company name
+            try:
+                company_field = browser_page.locator(
+                    f'[id*="company"][id*="-{job_index}"], [id="company-{job_index}"]'
+                ).first
+                company_field.fill(job["company"], timeout=2000)
+                print(f"    ✓ Company: {job['company']}")
+            except:
+                print(f"    ⚠️ Could not find company field for job {job_index}")
+
+            # Fill title
+            try:
+                title_field = browser_page.locator(f'[id="title-{job_index}"]').first
+                title_field.fill(job["title"], timeout=2000)
+                print(f"    ✓ Title: {job['title']}")
+            except:
+                print(f"    ⚠️ Could not find title field for job {job_index}")
+
+            # Fill start date month
+            try:
+                start_month_field = browser_page.locator(
+                    f'[id="start-date-month-{job_index}"]'
+                ).first
+                start_month_field.click(timeout=2000)
+                time.sleep(0.5)
+                browser_page.keyboard.type(job["start_month"])
+                time.sleep(0.3)
+                browser_page.keyboard.press("Enter")
+                print(f"    ✓ Start month: {job['start_month']}")
+            except:
+                print(f"    ⚠️ Could not fill start month for job {job_index}")
+
+            # Fill start date year
+            try:
+                start_year_field = browser_page.locator(
+                    f'[id="start-date-year-{job_index}"]'
+                ).first
+                start_year_field.fill(job["start_year"], timeout=2000)
+                print(f"    ✓ Start year: {job['start_year']}")
+            except:
+                print(f"    ⚠️ Could not fill start year for job {job_index}")
+
+            # Handle "current role" checkbox
+            if job.get("is_current", False):
+                try:
+                    current_role_checkbox = browser_page.locator(
+                        f'[id*="current-role"][id*="{job_index}"]'
+                    ).first
+                    if not current_role_checkbox.is_checked():
+                        current_role_checkbox.click(timeout=2000)
+                    print(f"    ✓ Marked as current role")
+                except:
+                    pass
+            else:
+                # Fill end date month
+                try:
+                    end_month_field = browser_page.locator(
+                        f'[id="end-date-month-{job_index}"]'
+                    ).first
+                    end_month_field.click(timeout=2000)
+                    time.sleep(0.5)
+                    browser_page.keyboard.type(job["end_month"])
+                    time.sleep(0.3)
+                    browser_page.keyboard.press("Enter")
+                    print(f"    ✓ End month: {job['end_month']}")
+                except:
+                    print(f"    ⚠️ Could not fill end month for job {job_index}")
+
+                # Fill end date year
+                try:
+                    end_year_field = browser_page.locator(
+                        f'[id="end-date-year-{job_index}"]'
+                    ).first
+                    end_year_field.fill(job["end_year"], timeout=2000)
+                    print(f"    ✓ End year: {job['end_year']}")
+                except:
+                    print(f"    ⚠️ Could not fill end year for job {job_index}")
+
+            # If there are more jobs, click "Add another" button
+            if job_index < len(CANDIDATE_WORK_HISTORY) - 1:
+                try:
+                    add_another_button = browser_page.get_by_role(
+                        "button", name="Add another"
+                    )
+                    if add_another_button.is_visible(timeout=1000):
+                        add_another_button.click(timeout=2000)
+                        time.sleep(1)  # Wait for new fields to appear
+                        print(f"    ✓ Clicked 'Add another' for next job")
+                except:
+                    print(
+                        f"    ℹ️  Could not find 'Add another' button, stopping at {job_index + 1} jobs"
+                    )
+                    break
+
+        except Exception as e:
+            print(f"  ❌ Error filling job {job_index}: {e}")
+            continue
+
+    print(
+        f"  ✓ Employment section filled with {min(job_index + 1, len(CANDIDATE_WORK_HISTORY))} jobs\n"
+    )
 
 
 def get_adaptive_responses(questions, job_title=""):
@@ -696,15 +1247,51 @@ def get_adaptive_responses(questions, job_title=""):
     # Filter out questions that already have responses
     questions_needing_responses = [q for q in questions if "Response" not in q]
 
-    # Filter out EEO and sensitive address fields from LLM processing
+    # Filter out EEO, address, education, and employment fields from LLM processing
     eeo_fields = [q for q in questions_needing_responses if is_eeo_field(q)]
-    address_fields = [q for q in questions_needing_responses if is_sensitive_address_field(q) and not is_eeo_field(q)]
-    questions_for_llm = [q for q in questions_needing_responses if not is_eeo_field(q) and not is_sensitive_address_field(q)]
+    address_fields = [
+        q
+        for q in questions_needing_responses
+        if is_sensitive_address_field(q) and not is_eeo_field(q)
+    ]
+    education_fields = [
+        q
+        for q in questions_needing_responses
+        if is_education_field(q)
+        and not is_eeo_field(q)
+        and not is_sensitive_address_field(q)
+    ]
+    employment_fields = [
+        q
+        for q in questions_needing_responses
+        if is_employment_field(q)
+        and not is_eeo_field(q)
+        and not is_sensitive_address_field(q)
+        and not is_education_field(q)
+    ]
+    questions_for_llm = [
+        q
+        for q in questions_needing_responses
+        if not is_eeo_field(q)
+        and not is_sensitive_address_field(q)
+        and not is_education_field(q)
+        and not is_employment_field(q)
+    ]
 
     if eeo_fields:
         print(f"  ⏭️  Skipping {len(eeo_fields)} EEO disclosure fields (will not fill)")
     if address_fields:
-        print(f"  ⏭️  Skipping {len(address_fields)} street address fields (will not fill)")
+        print(
+            f"  ⏭️  Skipping {len(address_fields)} street address fields (will not fill)"
+        )
+    if education_fields:
+        print(
+            f"  ⏭️  Skipping {len(education_fields)} education fields (handled separately)"
+        )
+    if employment_fields:
+        print(
+            f"  ⏭️  Skipping {len(employment_fields)} employment fields (handled separately)"
+        )
 
     if not questions_for_llm:
         print("  ℹ️  All non-EEO questions already have responses from autofill")
@@ -715,7 +1302,9 @@ def get_adaptive_responses(questions, job_title=""):
     llm_candidate_context = get_candidate_info_for_llm()
 
     # Check if any questions need salary context
-    has_salary_field = any(q.get("needs_salary_context", False) for q in questions_for_llm)
+    has_salary_field = any(
+        q.get("needs_salary_context", False) for q in questions_for_llm
+    )
     salary_instruction = ""
     if has_salary_field and job_title:
         salary_instruction = f"\n\n# Salary Expectations:\n- Job title: {job_title}\n- Research typical market rate for this role for a new graduate with 2 years experience\n- Provide a reasonable salary expectation (annual, in USD)\n- If the job description mentions a salary range, aim for the middle of that range\n- Format as a number (e.g., '120000' for $120k)"
@@ -723,13 +1312,20 @@ def get_adaptive_responses(questions, job_title=""):
     # Format questions for LLM (only non-EEO questions)
     questions_json = json.dumps(questions_for_llm, indent=2)
 
-    chat_completion = client.chat.completions.create(
-        messages=[
-            {
-                "role": "system",
-                "content": f"""You are filling out a job application form on behalf of Vidyuth Subbiah Ramkumar, a new graduate software/ML engineer.
+    system_prompt = """You are filling out a job application form on behalf of Vidyuth Subbiah Ramkumar, a new graduate software/ML engineer.
 
-{llm_candidate_context}{salary_instruction}
+""" + llm_candidate_context + salary_instruction + """
+
+# Availability & Relocation:
+- Vidyuth is OPEN TO RELOCATING to ANY location in the USA (any city, any state)
+- Vidyuth is graduating in May 2026 and is available to start full-time positions anytime after May 2026
+- For questions asking "Can you be in [location] and ready to start...", answer YES and mention availability after May 2026 graduation
+- For questions about relocation, in-person work, or office commitment, answer YES
+
+# GPA Information:
+- Vidyuth's GPA is 3.41
+- For GPA range dropdowns (e.g., "3.0-3.19", "3.2-3.49"), select the range that contains 3.41
+- 3.41 falls in the range 3.2-3.49 (or 3.20-3.49)
 
 # Instructions:
 - Add a "Response" field to EVERY question provided
@@ -738,12 +1334,25 @@ def get_adaptive_responses(questions, job_title=""):
 - Answer ALL questions about skills, preferences, relocation, websites, LinkedIn/GitHub URLs, etc.
 - For salary questions, provide a realistic market-rate number based on the job title and candidate's experience level
 - Keep responses concise and professional
-- Return ONLY valid JSON array with no markdown formatting, no ```json blocks, just the raw JSON array
-""",
+
+# CRITICAL OUTPUT FORMAT:
+- Return ONLY the JSON array, nothing else
+- NO markdown code blocks (no ```json)
+- NO explanatory text before or after the JSON
+- NO notes or comments
+- Start your response with [ and end with ]
+- Example: [{"Field ID": "x", "Response": "y"}]
+"""
+
+    chat_completion = client.chat.completions.create(
+        messages=[
+            {
+                "role": "system",
+                "content": system_prompt,
             },
             {
                 "role": "user",
-                "content": f"Here are the form fields that need responses:\n{questions_json}",
+                "content": "Here are the form fields that need responses:\n" + questions_json,
             },
         ],
         model="llama-3.3-70b-versatile",
@@ -762,6 +1371,22 @@ def get_adaptive_responses(questions, job_title=""):
             response_content = response_content.split("```")[1]
             if response_content.startswith("json"):
                 response_content = response_content[4:]
+
+        # If response has text before JSON, extract just the JSON array
+        if not response_content.strip().startswith("["):
+            # Find the first [ and extract from there
+            start_idx = response_content.find("[")
+            if start_idx != -1:
+                response_content = response_content[start_idx:]
+
+        # Remove any trailing text after the JSON array
+        if response_content.strip().endswith("]"):
+            pass  # Already clean
+        else:
+            # Find the last ] and truncate after it
+            end_idx = response_content.rfind("]")
+            if end_idx != -1:
+                response_content = response_content[: end_idx + 1]
 
         responded_questions = json.loads(response_content)
 
@@ -804,7 +1429,15 @@ def fill_unknown_fields_with_responses(browser_page, unknown_fields):
                 filled_count += 1
             elif field_tag == "input":
                 field_type = field.get("field_type", "text")
-                if field_type in ["text", "email", "url", "tel", "number"]:
+                # Handle checkbox fields
+                if field_type == "checkbox" or "checkbox" in str(field_type).lower():
+                    if response == "checked":
+                        locator = browser_page.locator(f'[id="{field_id}"]')
+                        if not locator.is_checked(timeout=2000):
+                            locator.click(timeout=3000)
+                        print(f"✓ Checked {field_id}")
+                        filled_count += 1
+                elif field_type in ["text", "email", "url", "tel", "number"]:
                     # Use attribute selector for IDs starting with numbers
                     locator = browser_page.locator(f'[id="{field_id}"]')
 
@@ -821,14 +1454,18 @@ def fill_unknown_fields_with_responses(browser_page, unknown_fields):
 
                             # Try to click the exact match option
                             try:
-                                browser_page.get_by_text(response, exact=True).first.click(timeout=2000)
+                                browser_page.get_by_text(
+                                    response, exact=True
+                                ).first.click(timeout=2000)
                                 print(f"✓ Filled {field_id} with: {response}")
                                 filled_count += 1
                             except:
                                 # If exact match click fails, just press Enter
                                 browser_page.keyboard.press("Enter")
                                 time.sleep(0.3)
-                                print(f"✓ Filled {field_id} with: {response} (keyboard)")
+                                print(
+                                    f"✓ Filled {field_id} with: {response} (keyboard)"
+                                )
                                 filled_count += 1
                         except Exception as e:
                             print(

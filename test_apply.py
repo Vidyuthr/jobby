@@ -14,9 +14,15 @@ def test_apply_to_single_job(job):
 
 
 if __name__ == "__main__":
+    # test_job = {
+    #     "title": "Staff AI-Native Platform Engineer",
+    #     "company": "Natera",
+    #     "url": "https://job-boards.greenhouse.io/natera/jobs/5838483004",
+    # }
     test_job = {
-        "title": "Staff AI-Native Platform Engineer",
-        "company": "Natera",
-        "url": "https://job-boards.greenhouse.io/natera/jobs/5838483004",
+        "title": "Entry Level Software Developer | Graduate Leadership Program",
+        "company": "Further",
+        "url": "https://job-boards.greenhouse.io/furtherearlycareer/jobs/8384012002?gh_src=Simplify",
     }
+
     test_apply_to_single_job(test_job)

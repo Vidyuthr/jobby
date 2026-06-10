@@ -30,6 +30,47 @@ CANDIDATE_SKILLS = "Languages: Python, JavaScript, TypeScript, SQL, Swift, Java\
 
 CANDIDATE_EXPERIENCE = "- Beatleaf (Co-Founder): Full stack version control software for music producers , React/Express/PostgreSQL/Supabase, audio version control, 30+ users. strong product/startup understanding of PMF, market/user interviewing, engineering prioritization, etc.\n- Credit One Bank (SWE Intern): Production data engineering including complex SQL, Apache Airflow, Spark to help monitor internal data platform that handled complex and vast data in 300 terabytes\n- Objectways (AI/ML Engineer, Jun 2024 - Dec 2024): Engineered production full stack Express.js backend with Firebase NoSQL Firestore database, Python LLM tokenization service, and Stripe payment processing for Sheetwise — an AI-powered Google Sheets extension with 220+ organic user signups and multiple paid subscribers on Google Sheets Marketplace. Built production Databricks RAG pipelines in Python, Spark, and SQL powering a customer support chatbot (60% faster response time) and a vehicle AI assistant (85% accuracy across 300+ models).\n- Sparrow (Tech Intern): Python web scraping via BS4 and requests, HTML work, PowerBI work"
 
+# Structured Work History (for form autofill)
+# Listed in reverse chronological order (most recent first)
+CANDIDATE_WORK_HISTORY = [
+    {
+        "company": "Objectways",
+        "title": "AI/ML Engineer",
+        "start_month": "June",
+        "start_year": "2024",
+        "end_month": "December",
+        "end_year": "2024",
+        "is_current": False,
+    },
+    {
+        "company": "Credit One Bank",
+        "title": "Software Engineering Intern",
+        "start_month": "June",
+        "start_year": "2025",
+        "end_month": "August",
+        "end_year": "2025",
+        "is_current": False,
+    },
+    {
+        "company": "Beatleaf",
+        "title": "Co-Founder",
+        "start_month": "October",
+        "start_year": "2024",
+        "end_month": "May",
+        "end_year": "2026",
+        "is_current": False,
+    },
+    {
+        "company": "Sparrow",
+        "title": "Tech Intern",
+        "start_month": "May",
+        "start_year": "2022",
+        "end_month": "August",
+        "end_year": "2022",
+        "is_current": False,
+    },
+]
+
 CANDIDATE_PROJECTS = "- Safe Stack Overflow: Full stack Q&A platform with AI content moderation\n- Nightcap: React Native IoT sleep startup, 12,000+ views on social media, finalist in University startup challenge. Product was not built"
 
 CANDIDATE_CERTIFICATIONS = "Stanford ML Specialization (Supervised learning, deep learning, and reinforcement learning),CrewAI Building MultiAgent Systems, Databricks basics (ML + Data Engineering), Google LLM/GenAI, Anthropic Agent Skills"
@@ -40,6 +81,7 @@ CANDIDATE_EDUCATION = {
     "degree": "BS Computer Science + Business Administration",
     "discipline": "Computer Science",
     "school": "Northeastern University",
+    "gpa": "3.41",
     "honors": "Honors Program, Dean's List",
     "start_month": "September",
     "start_year": "2022",
@@ -58,6 +100,7 @@ def get_candidate_info_for_llm():
     education_section = f"""- Degree: {edu['degree']}
 - Discipline: {edu['discipline']}
 - School: {edu['school']}
+- GPA: {edu['gpa']}
 - Honors: {edu['honors']}
 - Start Date: {edu['start_month']} {edu['start_year']}
 - End Date: {edu['end_month']} {edu['end_year']}"""
