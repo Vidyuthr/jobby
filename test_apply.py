@@ -27,9 +27,9 @@ if __name__ == "__main__":
     #     "url": "https://job-boards.greenhouse.io/natera/jobs/5838483004",
     # }
     test_job = {
-        "title": "Entry Level Software Developer | Graduate Leadership Program",
-        "company": "Further",
-        "url": "https://job-boards.greenhouse.io/furtherearlycareer/jobs/8384012002?gh_src=Simplify",
+        "title": "https://job-boards.greenhouse.io/flexport/jobs/7839346?gh_jid=7839346",
+        "company": "Flexport",
+        "url": "https://job-boards.greenhouse.io/flexport/jobs/7839346?gh_jid=7839346",
     }
 
     test_apply_to_single_job(test_job)

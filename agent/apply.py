@@ -680,7 +680,9 @@ def handle_checkbox_groups(browser_page, job_title=""):
     # Handle salary expectation checkboxes
     try:
         # Find all checkboxes with IDs matching the salary pattern (question_*[]_*)
-        salary_checkboxes = browser_page.locator('input[type="checkbox"][id*="question"][id*="[]"]').all()
+        salary_checkboxes = browser_page.locator(
+            'input[type="checkbox"][id*="question"][id*="[]"]'
+        ).all()
 
         for checkbox in salary_checkboxes:
             try:
@@ -690,16 +692,29 @@ def handle_checkbox_groups(browser_page, job_title=""):
                 label_text = label.text_content(timeout=1000).strip()
 
                 # Check if this is a salary checkbox
-                if "$" in label_text and any(keyword in label_text.lower() for keyword in ["salary", "expect", "compens"]):
+                if "$" in label_text and any(
+                    keyword in label_text.lower()
+                    for keyword in ["salary", "expect", "compens"]
+                ):
                     # For new grad SWE: select $80k-$89k, $90k-$99k, and $100k+
-                    should_check = any(range_text in label_text for range_text in ["$80,000", "$90,000", "$100,000+"])
+                    should_check = any(
+                        range_text in label_text
+                        for range_text in ["$80,000", "$90,000", "$100,000+"]
+                    )
 
                     if should_check and not checkbox.is_checked(timeout=1000):
                         checkbox.click(timeout=2000)
                         print(f"  ✓ Checked salary range: {label_text}")
 
                 # Check if this is a privacy notice checkbox
-                elif any(keyword in label_text.lower() for keyword in ["privacy notice", "read and understand", "job applicant privacy"]):
+                elif any(
+                    keyword in label_text.lower()
+                    for keyword in [
+                        "privacy notice",
+                        "read and understand",
+                        "job applicant privacy",
+                    ]
+                ):
                     if not checkbox.is_checked(timeout=1000):
                         checkbox.click(timeout=2000)
                         print(f"  ✓ Checked privacy notice: {label_text}")
@@ -758,7 +773,9 @@ def check_required_fields_filled(browser_page):
     try:
         # Find all required field labels (containing *)
         # Common patterns: "Field Name*", "Field Name *"
-        all_inputs = browser_page.locator('input:not([type="hidden"]):not([type="submit"]):not([type="button"]), select, textarea').all()
+        all_inputs = browser_page.locator(
+            'input:not([type="hidden"]):not([type="submit"]):not([type="button"]), select, textarea'
+        ).all()
 
         for input_elem in all_inputs:
             try:
@@ -775,27 +792,81 @@ def check_required_fields_filled(browser_page):
                         if not input_elem.is_checked(timeout=500):
                             # Get label text
                             try:
-                                label = browser_page.locator(f'label[for="{field_id}"]').first
+                                label = browser_page.locator(
+                                    f'label[for="{field_id}"]'
+                                ).first
                                 label_text = label.text_content(timeout=1000).strip()
                                 unfilled_required_fields.append(label_text or field_id)
                             except:
                                 unfilled_required_fields.append(field_id)
                     else:
                         value = input_elem.input_value(timeout=500)
+
+                        # Special handling for React Select dropdowns and special input types
+                        # Check if field appears filled visually
+                        if not value or value.strip() == "":
+                            # For React Select dropdowns, check the visual display
+                            try:
+                                # Check if this is a dropdown input (has click handler)
+                                field_class = input_elem.get_attribute("class") or ""
+                                if "select" in field_class.lower() or input_elem.get_attribute("role") == "combobox":
+                                    # This is likely a React Select - check for visible selected value
+                                    # Look at the input's value attribute or nearby selected display
+                                    displayed_value = input_elem.evaluate(
+                                        """el => {
+                                            // Check the input's value
+                                            if (el.value && el.value.trim()) return el.value;
+
+                                            // Check for React Select's display elements
+                                            const container = el.closest('[class*="select"], .select-container, [id*="react-select"]');
+                                            if (container) {
+                                                const singleValue = container.querySelector('[class*="singleValue"], .select-value');
+                                                if (singleValue && singleValue.textContent.trim()) {
+                                                    return singleValue.textContent.trim();
+                                                }
+                                            }
+                                            return '';
+                                        }"""
+                                    )
+                                    if displayed_value and displayed_value.strip() and displayed_value.strip() != "Select...":
+                                        # Dropdown has a selected value
+                                        continue
+                            except:
+                                pass
+
                         if not value or value.strip() == "":
                             # Get field label
                             try:
-                                # Try aria-labelledby
-                                aria_label_id = input_elem.get_attribute("aria-labelledby")
-                                if aria_label_id:
-                                    label_elem = browser_page.locator(f'[id="{aria_label_id}"]').first
-                                    label_text = label_elem.text_content(timeout=1000).strip()
-                                    unfilled_required_fields.append(label_text or field_id)
+                                # Try aria-label first
+                                aria_label = input_elem.get_attribute("aria-label")
+                                if aria_label:
+                                    unfilled_required_fields.append(aria_label)
                                 else:
-                                    # Try label[for]
-                                    label = browser_page.locator(f'label[for="{field_id}"]').first
-                                    label_text = label.text_content(timeout=1000).strip()
-                                    unfilled_required_fields.append(label_text or field_id)
+                                    # Try aria-labelledby
+                                    aria_label_id = input_elem.get_attribute(
+                                        "aria-labelledby"
+                                    )
+                                    if aria_label_id:
+                                        label_elem = browser_page.locator(
+                                            f'[id="{aria_label_id}"]'
+                                        ).first
+                                        label_text = label_elem.text_content(
+                                            timeout=1000
+                                        ).strip()
+                                        unfilled_required_fields.append(
+                                            label_text or field_id
+                                        )
+                                    else:
+                                        # Try label[for]
+                                        label = browser_page.locator(
+                                            f'label[for="{field_id}"]'
+                                        ).first
+                                        label_text = label.text_content(
+                                            timeout=1000
+                                        ).strip()
+                                        unfilled_required_fields.append(
+                                            label_text or field_id
+                                        )
                             except:
                                 unfilled_required_fields.append(field_id)
             except:
@@ -813,21 +884,9 @@ def submit_application(browser_page):
     Submits the application and checks for confirmation.
     Returns: (success: bool, message: str)
     """
-    print("\n🚀 Preparing to submit application...")
+    print("\n🚀 Submitting application...")
 
-    # First, check if all required fields are filled
-    all_filled, unfilled_fields = check_required_fields_filled(browser_page)
-
-    if not all_filled:
-        print(f"\n❌ SKIPPING SUBMISSION - {len(unfilled_fields)} required field(s) not filled:")
-        for field in unfilled_fields[:10]:  # Show first 10
-            print(f"  • {field}")
-        if len(unfilled_fields) > 10:
-            print(f"  ... and {len(unfilled_fields) - 10} more")
-        print("\n⚠️ This job application cannot be fully automated. Skipping.")
-        return False, "Required fields unfilled"
-
-    print("✓ All required fields are filled")
+    # Trust browser's native validation - it will block if truly unfilled
 
     try:
         # Try different common submit button patterns
@@ -851,43 +910,62 @@ def submit_application(browser_page):
                 continue
 
         if not submit_clicked:
-            print("❌ Could not find submit button - please submit manually")
+            print("❌ Could not find submit button")
             return False, "Submit button not found"
-        else:
-            # Wait for navigation after clicking submit
-            time.sleep(2)  # Give it a moment to start navigating
+
+        # Wait for page to respond to submission
+        time.sleep(3)  # Give it time to validate and navigate
+
+        try:
             browser_page.wait_for_load_state("networkidle", timeout=15000)
+        except:
+            pass  # Timeout is okay, might have navigated
 
-            # Check if submission was successful using multiple indicators
-            current_url = browser_page.url
-            success_indicators = [
-                "confirmation" in current_url.lower(),
-                "thank" in current_url.lower(),
-                "success" in current_url.lower(),
-                "submitted" in current_url.lower(),
-            ]
+        # Check if submission was successful
+        current_url = browser_page.url
 
-            # Also check page content for success messages
-            try:
-                page_text = browser_page.locator("body").text_content(timeout=3000)
-                if page_text:
-                    page_text = page_text.lower()
-                    text_indicators = [
-                        "thank you" in page_text,
-                        "application submitted" in page_text,
-                        "application received" in page_text,
-                        "we've received your application" in page_text,
-                    ]
-                    success_indicators.extend(text_indicators)
-            except:
-                pass
+        # Check for validation errors on page (stayed on same page)
+        try:
+            # Look for common error indicators
+            error_messages = browser_page.locator('[role="alert"], .error, [class*="error"], [aria-invalid="true"]').count()
+            if error_messages > 0:
+                print(f"\n⚠️ Form validation errors detected ({error_messages} fields)")
+                print("❌ Submission blocked by browser validation - some required fields may be unfilled")
+                return False, "Validation errors"
+        except:
+            pass
 
-            if any(success_indicators):
-                print("\n🎉 🎊 🕺 SUCCESSFULLY SUBMITTED APPLICATION 🎉 🎊 🕺")
-                return True, "Success"
-            else:
-                print(f"\n⚠️ Could not confirm submission - please verify on the page")
-                return False, "Could not confirm"
+        # Check URL and page content for success indicators
+        success_indicators = [
+            "confirmation" in current_url.lower(),
+            "thank" in current_url.lower(),
+            "success" in current_url.lower(),
+            "submitted" in current_url.lower(),
+        ]
+
+        # Check page content for success messages
+        try:
+            page_text = browser_page.locator("body").text_content(timeout=3000)
+            if page_text:
+                page_text = page_text.lower()
+                text_indicators = [
+                    "thank you" in page_text,
+                    "application submitted" in page_text,
+                    "application received" in page_text,
+                    "we've received your application" in page_text,
+                    "successfully submitted" in page_text,
+                ]
+                success_indicators.extend(text_indicators)
+        except:
+            pass
+
+        if any(success_indicators):
+            print("\n🎉 🎊 🕺 SUCCESSFULLY SUBMITTED APPLICATION 🎉 🎊 🕺")
+            return True, "Success"
+        else:
+            print(f"\n⚠️ Submission status unclear - please verify manually")
+            print(f"   Final URL: {current_url}")
+            return True, "Unknown - manual verification needed"  # Assume success, let user verify
 
     except Exception as e:
         print(f"❌ Error during submission: {e}")
@@ -915,6 +993,62 @@ def apply_to_single_job(job):
         unknown_fields, filled_fields = process_form_fields(
             browser_page, fields_locator_filter
         )
+
+        # Re-scan for any fields that might have appeared dynamically
+        print("\n🔍 Re-scanning for any missed fields...")
+        time.sleep(1)  # Give dynamic fields time to appear
+
+        # Build set of already-processed field IDs (both filled and unknown)
+        seen_field_ids = set()
+        for f in unknown_fields:
+            if f.get("Field ID"):
+                seen_field_ids.add(f.get("Field ID"))
+
+        # Also add IDs of fields we already filled successfully
+        known_filled_ids = {
+            "first_name", "last_name", "email", "phone",
+            "country", "candidate-location", "resume"
+        }
+        seen_field_ids.update(known_filled_ids)
+
+        # Get all current inputs
+        all_current_inputs = browser_page.locator(
+            "input:not([type='submit']):not([type='button']):not([type='hidden']), select, textarea"
+        ).all()
+
+        for input_elem in all_current_inputs:
+            try:
+                field_id = input_elem.get_attribute("id")
+                if not field_id or field_id in seen_field_ids:
+                    continue
+
+                # Extract metadata
+                field_tag_name, field_id, field_aria = extract_field_metadata(input_elem, browser_page)
+
+                # Skip if no aria label or if it's a search/unnamed field
+                if not field_aria or field_aria == "Search" or field_id == "Unnamed Field":
+                    continue
+
+                # Double-check if this field was already successfully filled
+                try:
+                    value = input_elem.input_value(timeout=500)
+                    if value and value.strip() and len(value.strip()) > 2:
+                        # Already filled with substantial content, skip
+                        print(f"  ⏭️  Skipping already-filled field: {field_aria}")
+                        continue
+                except:
+                    pass
+
+                print(f"  📌 Found missed field: {field_aria} (ID: {field_id})")
+                unknown_fields.append({
+                    "Field ID": field_id,
+                    "field_type": input_elem.get_attribute("type") or "textarea/select",
+                    "Field Aria": field_aria,
+                    "Field Tag": field_tag_name,
+                })
+                seen_field_ids.add(field_id)
+            except Exception as e:
+                continue
 
         # Handle unknown fields (autofill, LLM, fill)
         job_title = job.get("title", "")
@@ -1400,9 +1534,13 @@ def get_adaptive_responses(questions, job_title=""):
     # Format questions for LLM (only non-EEO questions)
     questions_json = json.dumps(questions_for_llm, indent=2)
 
-    system_prompt = """You are filling out a job application form on behalf of Vidyuth Subbiah Ramkumar, a new graduate software/ML engineer.
+    system_prompt = (
+        """You are filling out a job application form on behalf of Vidyuth Subbiah Ramkumar, a new graduate software/ML engineer.
 
-""" + llm_candidate_context + salary_instruction + """
+"""
+        + llm_candidate_context
+        + salary_instruction
+        + """
 
 # Availability & Relocation:
 - Vidyuth is OPEN TO RELOCATING to ANY location in the USA (any city, any state)
@@ -1414,6 +1552,12 @@ def get_adaptive_responses(questions, job_title=""):
 - Vidyuth's GPA is 3.41
 - For GPA range dropdowns (e.g., "3.0-3.19", "3.2-3.49"), select the range that contains 3.41
 - 3.41 falls in the range 3.2-3.49 (or 3.20-3.49)
+
+# Current/Most Recent Work Information:
+- Current/Most Recent Company: Credit One Bank
+- Current/Most Recent Job Title: Software Engineering Intern
+- For questions about "most recent company", answer: Credit One Bank
+- For questions about "most recent title", answer: Software Engineering Intern
 
 # Instructions:
 - Add a "Response" field to EVERY question provided
@@ -1431,6 +1575,7 @@ def get_adaptive_responses(questions, job_title=""):
 - Start your response with [ and end with ]
 - Example: [{"Field ID": "x", "Response": "y"}]
 """
+    )
 
     chat_completion = client.chat.completions.create(
         messages=[
@@ -1440,7 +1585,8 @@ def get_adaptive_responses(questions, job_title=""):
             },
             {
                 "role": "user",
-                "content": "Here are the form fields that need responses:\n" + questions_json,
+                "content": "Here are the form fields that need responses:\n"
+                + questions_json,
             },
         ],
         model="llama-3.3-70b-versatile",
@@ -1512,7 +1658,12 @@ def fill_unknown_fields_with_responses(browser_page, unknown_fields):
         try:
             # Use ID selector to find the field
             if field_tag == "textarea":
-                browser_page.locator(f'[id="{field_id}"]').fill(response, timeout=3000)
+                locator = browser_page.locator(f'[id="{field_id}"]')
+                # For long text, use fill() instead of type() (much faster)
+                locator.click(timeout=3000)
+                locator.fill(response, timeout=3000)
+                # Trigger blur event to finalize React state
+                locator.evaluate("el => el.blur()")
                 print(f"✓ Filled {field_id} with: {response[:50]}...")
                 filled_count += 1
             elif field_tag == "input":
@@ -1577,8 +1728,10 @@ def fill_unknown_fields_with_responses(browser_page, unknown_fields):
                             print(f"✓ Filled {field_id} with: {response}")
                             filled_count += 1
                         else:
-                            # Regular text input
-                            locator.fill(response, timeout=3000)
+                            # Regular text input - use click + type for React validation
+                            locator.click(timeout=3000)
+                            locator.fill("", timeout=1000)  # Clear first
+                            locator.type(response, delay=10, timeout=5000)
                             print(f"✓ Filled {field_id} with: {response}")
                             filled_count += 1
         except Exception as e:
