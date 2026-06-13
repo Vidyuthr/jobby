@@ -21,15 +21,10 @@ def test_apply_to_single_job(job):
 
 
 if __name__ == "__main__":
-    # test_job = {
-    #     "title": "Staff AI-Native Platform Engineer",
-    #     "company": "Natera",
-    #     "url": "https://job-boards.greenhouse.io/natera/jobs/5838483004",
-    # }
     test_job = {
-        "title": "https://job-boards.greenhouse.io/flexport/jobs/7839346?gh_jid=7839346",
-        "company": "Flexport",
-        "url": "https://job-boards.greenhouse.io/flexport/jobs/7839346?gh_jid=7839346",
+        "title": "Software Engineer - Backend Services",
+        "company": "Truveta",
+        "url": "https://job-boards.greenhouse.io/truveta/jobs/6002807004?gh_src=Simplify",
     }
 
     test_apply_to_single_job(test_job)

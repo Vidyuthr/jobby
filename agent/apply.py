@@ -1,5 +1,6 @@
 # agent/apply.py
 import json
+import random
 import time
 import os
 import re
@@ -179,7 +180,9 @@ def fill_field(page, field_key):
     elif field_key == "country":
         try:
             page.locator("#country").click(timeout=3000)
-            page.keyboard.type("United States")
+            page.keyboard.type(
+                "United States", delay=random.randint(50, 150)
+            )  # ms between keys
             page.get_by_text("United States +1", exact=True).first.click(timeout=3000)
             print("✓ Filled country")
         except Exception as e:
@@ -809,11 +812,13 @@ def check_required_fields_filled(browser_page):
                             try:
                                 # Check if this is a dropdown input (has click handler)
                                 field_class = input_elem.get_attribute("class") or ""
-                                if "select" in field_class.lower() or input_elem.get_attribute("role") == "combobox":
+                                if (
+                                    "select" in field_class.lower()
+                                    or input_elem.get_attribute("role") == "combobox"
+                                ):
                                     # This is likely a React Select - check for visible selected value
                                     # Look at the input's value attribute or nearby selected display
-                                    displayed_value = input_elem.evaluate(
-                                        """el => {
+                                    displayed_value = input_elem.evaluate("""el => {
                                             // Check the input's value
                                             if (el.value && el.value.trim()) return el.value;
 
@@ -826,9 +831,12 @@ def check_required_fields_filled(browser_page):
                                                 }
                                             }
                                             return '';
-                                        }"""
-                                    )
-                                    if displayed_value and displayed_value.strip() and displayed_value.strip() != "Select...":
+                                        }""")
+                                    if (
+                                        displayed_value
+                                        and displayed_value.strip()
+                                        and displayed_value.strip() != "Select..."
+                                    ):
                                         # Dropdown has a selected value
                                         continue
                             except:
@@ -927,10 +935,14 @@ def submit_application(browser_page):
         # Check for validation errors on page (stayed on same page)
         try:
             # Look for common error indicators
-            error_messages = browser_page.locator('[role="alert"], .error, [class*="error"], [aria-invalid="true"]').count()
+            error_messages = browser_page.locator(
+                '[role="alert"], .error, [class*="error"], [aria-invalid="true"]'
+            ).count()
             if error_messages > 0:
                 print(f"\n⚠️ Form validation errors detected ({error_messages} fields)")
-                print("❌ Submission blocked by browser validation - some required fields may be unfilled")
+                print(
+                    "❌ Submission blocked by browser validation - some required fields may be unfilled"
+                )
                 return False, "Validation errors"
         except:
             pass
@@ -965,7 +977,10 @@ def submit_application(browser_page):
         else:
             print(f"\n⚠️ Submission status unclear - please verify manually")
             print(f"   Final URL: {current_url}")
-            return True, "Unknown - manual verification needed"  # Assume success, let user verify
+            return (
+                True,
+                "Unknown - manual verification needed",
+            )  # Assume success, let user verify
 
     except Exception as e:
         print(f"❌ Error during submission: {e}")
@@ -1006,8 +1021,13 @@ def apply_to_single_job(job):
 
         # Also add IDs of fields we already filled successfully
         known_filled_ids = {
-            "first_name", "last_name", "email", "phone",
-            "country", "candidate-location", "resume"
+            "first_name",
+            "last_name",
+            "email",
+            "phone",
+            "country",
+            "candidate-location",
+            "resume",
         }
         seen_field_ids.update(known_filled_ids)
 
@@ -1023,10 +1043,16 @@ def apply_to_single_job(job):
                     continue
 
                 # Extract metadata
-                field_tag_name, field_id, field_aria = extract_field_metadata(input_elem, browser_page)
+                field_tag_name, field_id, field_aria = extract_field_metadata(
+                    input_elem, browser_page
+                )
 
                 # Skip if no aria label or if it's a search/unnamed field
-                if not field_aria or field_aria == "Search" or field_id == "Unnamed Field":
+                if (
+                    not field_aria
+                    or field_aria == "Search"
+                    or field_id == "Unnamed Field"
+                ):
                     continue
 
                 # Double-check if this field was already successfully filled
@@ -1040,12 +1066,15 @@ def apply_to_single_job(job):
                     pass
 
                 print(f"  📌 Found missed field: {field_aria} (ID: {field_id})")
-                unknown_fields.append({
-                    "Field ID": field_id,
-                    "field_type": input_elem.get_attribute("type") or "textarea/select",
-                    "Field Aria": field_aria,
-                    "Field Tag": field_tag_name,
-                })
+                unknown_fields.append(
+                    {
+                        "Field ID": field_id,
+                        "field_type": input_elem.get_attribute("type")
+                        or "textarea/select",
+                        "Field Aria": field_aria,
+                        "Field Tag": field_tag_name,
+                    }
+                )
                 seen_field_ids.add(field_id)
             except Exception as e:
                 continue
@@ -1061,6 +1090,9 @@ def apply_to_single_job(job):
 
         # Fill employment history section
         fill_employment_section(browser_page)
+
+        time.sleep(random.uniform(0.3, 0.8))
+        browser_page.mouse.move(random.randint(100, 400), random.randint(100, 400))
 
         # Submit the application
         success, message = submit_application(browser_page)
@@ -1236,7 +1268,9 @@ def fill_education_section(browser_page):
             ).first
             school_field.click(timeout=2000)
             time.sleep(0.3)
-            browser_page.keyboard.type(CANDIDATE_EDUCATION["school"])
+            browser_page.keyboard.type(
+                CANDIDATE_EDUCATION["school"], delay=random.randint(50, 150)
+            )
             time.sleep(0.5)
             # Try to click exact match
             try:
@@ -1255,7 +1289,7 @@ def fill_education_section(browser_page):
             degree_field = browser_page.locator('[id="degree--0"]').first
             degree_field.click(timeout=2000)
             time.sleep(0.5)
-            browser_page.keyboard.type("Bachelor")
+            browser_page.keyboard.type("Bachelor", delay=random.randint(50, 150))
             time.sleep(0.5)
             # Try to click exact match
             try:
@@ -1273,7 +1307,9 @@ def fill_education_section(browser_page):
             discipline_field = browser_page.locator('[id="discipline--0"]').first
             discipline_field.click(timeout=2000)
             time.sleep(0.5)
-            browser_page.keyboard.type("Computer Science")
+            browser_page.keyboard.type(
+                "Computer Science", delay=random.randint(50, 150)
+            )
             time.sleep(0.5)
             # Try to click exact match
             try:
@@ -1291,7 +1327,9 @@ def fill_education_section(browser_page):
             start_month_field = browser_page.locator('[id="start-month--0"]').first
             start_month_field.click(timeout=2000)
             time.sleep(0.5)
-            browser_page.keyboard.type(CANDIDATE_EDUCATION["start_month"])
+            browser_page.keyboard.type(
+                CANDIDATE_EDUCATION["start_month"], delay=random.randint(50, 150)
+            )
             time.sleep(0.3)
             browser_page.keyboard.press("Enter")
             print(f"  ✓ Start month: {CANDIDATE_EDUCATION['start_month']}")
@@ -1311,7 +1349,9 @@ def fill_education_section(browser_page):
             end_month_field = browser_page.locator('[id="end-month--0"]').first
             end_month_field.click(timeout=2000)
             time.sleep(0.5)
-            browser_page.keyboard.type(CANDIDATE_EDUCATION["end_month"])
+            browser_page.keyboard.type(
+                CANDIDATE_EDUCATION["end_month"], delay=random.randint(50, 150)
+            )
             time.sleep(0.3)
             browser_page.keyboard.press("Enter")
             print(f"  ✓ End month: {CANDIDATE_EDUCATION['end_month']}")
@@ -1383,7 +1423,9 @@ def fill_employment_section(browser_page):
                 ).first
                 start_month_field.click(timeout=2000)
                 time.sleep(0.5)
-                browser_page.keyboard.type(job["start_month"])
+                browser_page.keyboard.type(
+                    job["start_month"], delay=random.randint(50, 150)
+                )
                 time.sleep(0.3)
                 browser_page.keyboard.press("Enter")
                 print(f"    ✓ Start month: {job['start_month']}")
@@ -1419,7 +1461,9 @@ def fill_employment_section(browser_page):
                     ).first
                     end_month_field.click(timeout=2000)
                     time.sleep(0.5)
-                    browser_page.keyboard.type(job["end_month"])
+                    browser_page.keyboard.type(
+                        job["end_month"], delay=random.randint(50, 150)
+                    )
                     time.sleep(0.3)
                     browser_page.keyboard.press("Enter")
                     print(f"    ✓ End month: {job['end_month']}")
@@ -1688,7 +1732,9 @@ def fill_unknown_fields_with_responses(browser_page, unknown_fields):
                             time.sleep(0.8)  # Wait for React Select to render
 
                             # Type the value to trigger React's onChange
-                            browser_page.keyboard.type(response)
+                            browser_page.keyboard.type(
+                                response, delay=random.randint(50, 150)
+                            )
                             time.sleep(0.5)  # Let autocomplete filter
 
                             # Try to click the exact match option
@@ -1716,7 +1762,9 @@ def fill_unknown_fields_with_responses(browser_page, unknown_fields):
                         if "select" in field_class.lower():
                             # Try clicking and typing for autocomplete-style selects
                             locator.click(timeout=3000)
-                            browser_page.keyboard.type(response)
+                            browser_page.keyboard.type(
+                                response, delay=random.randint(50, 150)
+                            )
                             # Try to find exact match in dropdown
                             try:
                                 browser_page.get_by_text(
