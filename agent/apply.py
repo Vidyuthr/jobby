@@ -312,8 +312,17 @@ def better_fill_field(browser_page, field_locator, field_id, field_aria):
                     )
     return False
 
+def extract_checkbox_options(browser_page, field_locator):
+    checkbox_fieldsets = browser_page.locator('fieldset.checkbox').all()
+    field_tag_name, field_id, field_aria = extract_field_metadata(browser_page, field_locator)
+    field_class = field_locator.get_attribute("class") or ""
+    field_id = field_locator.get_attribute("id") or ""
+    if field_tag_name and field_class and field_id:
+        if field_tag_name == 'fieldset' and field_class == 'checkbox' and field_id.startswith('question'):
+            found_checkbox_field = True
+    
 
-def extract_field_metadata(ejf_locator, browser_page):
+def extract_field_metadata(browser_page, ejf_locator):
     """
     Extracts metadata from a form field locator.
     Returns: (field_tag_name, field_id, field_aria) or (None, None, None) if error
@@ -590,7 +599,7 @@ def process_form_fields(browser_page, fields_locator_filter):
 
         # Extract field metadata
         field_tag_name, field_id, field_aria = extract_field_metadata(
-            ejf_locator, browser_page
+            browser_page, ejf_locator
         )
         if not field_tag_name:
             i += 1
@@ -1044,7 +1053,7 @@ def apply_to_single_job(job):
 
                 # Extract metadata
                 field_tag_name, field_id, field_aria = extract_field_metadata(
-                    input_elem, browser_page
+                    browser_page, input_elem
                 )
 
                 # Skip if no aria label or if it's a search/unnamed field
